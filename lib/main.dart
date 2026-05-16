@@ -375,7 +375,7 @@ class DataService {
   // ══════════════════════════════════════════
   static Future<CompanyInfo> getCompanyInfo() async {
     final p = await _prefs;
-    final raw = p.getString('${_prefix}$_companyKey');
+    final raw = p.getString('$_prefix$_companyKey');
     if (raw == null) return const CompanyInfo(name: 'شركتي');
     try {
       final info = CompanyInfo.fromJson(jsonDecode(raw));
@@ -388,7 +388,7 @@ class DataService {
 
   static Future<void> saveCompanyInfo(CompanyInfo info) async {
     final p = await _prefs;
-    await p.setString('${_prefix}$_companyKey', jsonEncode(info.toJson()));
+    await p.setString('$_prefix$_companyKey', jsonEncode(info.toJson()));
     companyNotifier.value = info;
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && await _isOnline()) {
@@ -406,7 +406,7 @@ class DataService {
         if (data is Map) {
           final info = CompanyInfo.fromJson(Map<String, dynamic>.from(data));
           final p = await _prefs;
-          await p.setString('${_prefix}$_companyKey', jsonEncode(info.toJson()));
+          await p.setString('$_prefix$_companyKey', jsonEncode(info.toJson()));
           companyNotifier.value = info;
         }
       }
@@ -420,12 +420,12 @@ class DataService {
   // ══════════════════════════════════════════
   static Future<String> getMainCurrency() async {
     final p = await _prefs;
-    return p.getString('${_prefix}$_mainCurrencyKey') ?? 'USD';
+    return p.getString('$_prefix$_mainCurrencyKey') ?? 'USD';
   }
 
   static Future<void> setMainCurrency(String currency) async {
     final p = await _prefs;
-    await p.setString('${_prefix}$_mainCurrencyKey', currency);
+    await p.setString('$_prefix$_mainCurrencyKey', currency);
   }
 
   // ══════════════════════════════════════════
@@ -433,7 +433,7 @@ class DataService {
   // ══════════════════════════════════════════
   static Future<List<Account>> getAccounts() async {
     final p = await _prefs;
-    final raw = p.getString('${_prefix}$_accountsKey');
+    final raw = p.getString('$_prefix$_accountsKey');
     if (raw == null) return [];
     try {
       final list = jsonDecode(raw) as List;
@@ -445,7 +445,7 @@ class DataService {
 
   static Future<void> _saveAccountsLocally(List<Account> accounts) async {
     final p = await _prefs;
-    await p.setString('${_prefix}$_accountsKey',
+    await p.setString('$_prefix$_accountsKey',
         jsonEncode(accounts.map((a) => a.toJson()).toList()));
     accountsNotifier.value = List.from(accounts);
   }
@@ -533,7 +533,7 @@ class DataService {
   // ══════════════════════════════════════════
   static Future<List<Operation>> getOperations() async {
     final p = await _prefs;
-    final raw = p.getString('${_prefix}$_opsKey');
+    final raw = p.getString('$_prefix$_opsKey');
     if (raw == null) return [];
     try {
       final list = jsonDecode(raw) as List;
@@ -545,7 +545,7 @@ class DataService {
 
   static Future<void> _saveOperationsLocally(List<Operation> ops) async {
     final p = await _prefs;
-    await p.setString('${_prefix}$_opsKey',
+    await p.setString('$_prefix$_opsKey',
         jsonEncode(ops.map((o) => o.toJson()).toList()));
     operationsNotifier.value = List.from(ops);
   }
@@ -612,7 +612,9 @@ class DataService {
   static Future<double> getTotalBalanceUSD() async {
     final ops = await getOperations();
     double total = 0;
-    for (final op in ops) total += op.amountUSD;
+    for (final op in ops) {
+      total += op.amountUSD;
+    }
     return double.parse(total.toStringAsFixed(6));
   }
 
@@ -625,7 +627,7 @@ class DataService {
   // ══════════════════════════════════════════
   static Future<List<Map<String, dynamic>>> _getPending() async {
     final p = await _prefs;
-    final raw = p.getString('${_prefix}$_pendingKey');
+    final raw = p.getString('$_prefix$_pendingKey');
     if (raw == null) return [];
     try { return List<Map<String, dynamic>>.from(jsonDecode(raw)); }
     catch (_) { return []; }
@@ -633,7 +635,7 @@ class DataService {
 
   static Future<void> _savePending(List<Map<String, dynamic>> pending) async {
     final p = await _prefs;
-    await p.setString('${_prefix}$_pendingKey', jsonEncode(pending));
+    await p.setString('$_prefix$_pendingKey', jsonEncode(pending));
   }
 
   static Future<void> _addPending(String entity, String action, String id,
@@ -660,8 +662,9 @@ class DataService {
         final data = item['data'] as Map<String, dynamic>;
         final ref = entity == 'account'
             ? _accountsRef(user.uid).child(id) : _opsRef(user.uid).child(id);
-        if (action == 'create') await ref.set(data);
-        else if (action == 'delete') await ref.remove();
+        if (action == 'create') {
+          await ref.set(data);
+        } else if (action == 'delete') await ref.remove();
         succeeded.add('${entity}_$id');
       } catch (e) { debugPrint('❌ فشل مزامنة: ${item['id']} — $e'); }
     }
@@ -687,9 +690,9 @@ class DataService {
 
   static Future<void> clearAll() async {
     final p = await _prefs;
-    await p.remove('${_prefix}$_accountsKey');
-    await p.remove('${_prefix}$_opsKey');
-    await p.remove('${_prefix}$_pendingKey');
+    await p.remove('$_prefix$_accountsKey');
+    await p.remove('$_prefix$_opsKey');
+    await p.remove('$_prefix$_pendingKey');
     accountsNotifier.value = [];
     operationsNotifier.value = [];
     balanceNotifier.value = 0.0;
@@ -1676,10 +1679,12 @@ class _AccountDetailSheetState extends State<_AccountDetailSheet> {
     final accountOps = allOps.where((o) => o.accountId == widget.account.id).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
     final currency = await DataService.getMainCurrency();
-    if (mounted) setState(() {
+    if (mounted) {
+      setState(() {
       _summary = summary; _ops = accountOps;
       _mainCurrency = currency; _loading = false;
     });
+    }
   }
 
   Future<void> _confirmDeleteAccount() async {
@@ -2064,10 +2069,10 @@ class _EditOperationSheetState extends State<_EditOperationSheet> {
       child: Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           _sheetHandle(),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(children: [
-              const Text('تعديل القيد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const Spacer(), const CloseButton()])),
+              Text('تعديل القيد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Spacer(), CloseButton()])),
           const Divider(height: 1),
           Expanded(child: SingleChildScrollView(padding: const EdgeInsets.all(20),
             child: Column(children: [
@@ -2083,7 +2088,7 @@ class _EditOperationSheetState extends State<_EditOperationSheet> {
                   onChanged: (_) => _recalc(), style: const TextStyle(fontSize: 13))),
               ]),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(value: _currency, decoration: _inputDeco('العملة'),
+              DropdownButtonFormField<String>(initialValue: _currency, decoration: _inputDeco('العملة'),
                 items: _supportedCurrencies().map((c) => DropdownMenuItem(value: c,
                     child: Text('$c ${_currencySymbol(c)}', style: const TextStyle(fontSize: 13)))).toList(),
                 onChanged: (v) { setState(() => _currency = v ?? _mainCurrency); _recalc(); },
@@ -2151,10 +2156,10 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
       child: Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
           _sheetHandle(),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(children: [
-              const Text('تعديل الحساب', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const Spacer(), const CloseButton()])),
+              Text('تعديل الحساب', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Spacer(), CloseButton()])),
           const Divider(height: 1),
           Expanded(child: SingleChildScrollView(padding: const EdgeInsets.all(20),
             child: Column(children: [
@@ -2176,7 +2181,7 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
               const SizedBox(height: 12),
               _field('العنوان (اختياري)', _addressCtrl, maxLines: 2),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(value: _type, decoration: _inputDeco('نوع الحساب'),
+              DropdownButtonFormField<String>(initialValue: _type, decoration: _inputDeco('نوع الحساب'),
                 items: const [DropdownMenuItem(value: 'cash', child: Text('نقدي')),
                   DropdownMenuItem(value: 'bank', child: Text('بنكي')),
                   DropdownMenuItem(value: 'usdt', child: Text('USDT')),
@@ -2225,8 +2230,8 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
       child: Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
           _sheetHandle(),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(children: const [
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(children: [
               Text('حساب جديد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               Spacer(), CloseButton()])),
           const Divider(height: 1),
@@ -2238,7 +2243,7 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
               const SizedBox(height: 12),
               _field('العنوان (اختياري)', _addressCtrl, maxLines: 2),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(value: _type, decoration: _inputDeco('نوع الحساب'),
+              DropdownButtonFormField<String>(initialValue: _type, decoration: _inputDeco('نوع الحساب'),
                 items: const [DropdownMenuItem(value: 'cash', child: Text('نقدي')),
                   DropdownMenuItem(value: 'bank', child: Text('بنكي')),
                   DropdownMenuItem(value: 'usdt', child: Text('USDT')),
@@ -2294,8 +2299,8 @@ class _AddOperationSheetState extends State<_AddOperationSheet> {
       child: Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Column(children: [
           _sheetHandle(),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(children: const [
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(children: [
               Text('قيد جديد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               Spacer(), CloseButton()])),
           const Divider(height: 1),
@@ -2343,7 +2348,7 @@ class _AddOperationSheetState extends State<_AddOperationSheet> {
               onPressed: () => _removeRow(i), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
         ]),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(value: row.accountId.isEmpty ? null : row.accountId,
+        DropdownButtonFormField<String>(initialValue: row.accountId.isEmpty ? null : row.accountId,
           decoration: _inputDeco('اختر الحساب *'),
           items: _accounts.map((a) => DropdownMenuItem(value: a.id,
               child: Text('${a.id} — ${a.name}'))).toList(),
@@ -2361,7 +2366,7 @@ class _AddOperationSheetState extends State<_AddOperationSheet> {
             onChanged: (v) { row.rate = v; _recalc(i); }, style: const TextStyle(fontSize: 13))),
         ]),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(value: row.currency, decoration: _inputDeco('العملة'),
+        DropdownButtonFormField<String>(initialValue: row.currency, decoration: _inputDeco('العملة'),
           items: _supportedCurrencies().map((c) => DropdownMenuItem(value: c,
               child: Text('$c ${_currencySymbol(c)}', style: const TextStyle(fontSize: 13)))).toList(),
           onChanged: (v) => setState(() { row.currency = v ?? _mainCurrency; _recalc(i); }),
@@ -2440,8 +2445,11 @@ class _ReportsTabState extends State<_ReportsTab> {
     final mainSym = _currencySymbol(_mainCurrency);
     double totalCredit = 0, totalDebit = 0;
     for (final op in _ops) {
-      if (op.amount >= 0) totalCredit += op.amountUSD;
-      else totalDebit += op.amountUSD.abs();
+      if (op.amount >= 0) {
+        totalCredit += op.amountUSD;
+      } else {
+        totalDebit += op.amountUSD.abs();
+      }
     }
     return Scaffold(
       body: Container(
@@ -2450,8 +2458,8 @@ class _ReportsTabState extends State<_ReportsTab> {
             colors: [Color(0xFF021B79), Color(0xFF0575E6)])),
         child: CustomScrollView(slivers: [
           SliverAppBar(expandedHeight: h * 0.28, backgroundColor: Colors.transparent, elevation: 0,
-            flexibleSpace: FlexibleSpaceBar(centerTitle: true,
-              title: const Padding(padding: EdgeInsets.only(bottom: 16),
+            flexibleSpace: const FlexibleSpaceBar(centerTitle: true,
+              title: Padding(padding: EdgeInsets.only(bottom: 16),
                 child: Text('التقارير', style: TextStyle(color: Colors.white,
                     fontWeight: FontWeight.bold, fontSize: 28)))),
             pinned: false, floating: true),
@@ -2521,9 +2529,11 @@ class _SettingsTabState extends State<_SettingsTab> {
     final currency = await DataService.getMainCurrency();
     final count = await DataService.pendingCount();
     final company = await DataService.getCompanyInfo();
-    if (mounted) setState(() {
+    if (mounted) {
+      setState(() {
       _mainCurrency = currency; _pendingCount = count; _company = company; _loading = false;
     });
+    }
   }
 
   void _showCompanySheet() {
@@ -2536,8 +2546,8 @@ class _SettingsTabState extends State<_SettingsTab> {
   void _showChangePassword() {
     showModalBottomSheet(context: context, isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => Directionality(textDirection: ui.TextDirection.rtl,
-            child: const _ChangePasswordSheet()));
+        builder: (_) => const Directionality(textDirection: ui.TextDirection.rtl,
+            child: _ChangePasswordSheet()));
   }
 
   @override
@@ -2550,8 +2560,8 @@ class _SettingsTabState extends State<_SettingsTab> {
             colors: [Color(0xFF021B79), Color(0xFF0575E6)])),
         child: CustomScrollView(slivers: [
           SliverAppBar(expandedHeight: h * 0.22, backgroundColor: Colors.transparent, elevation: 0,
-            flexibleSpace: FlexibleSpaceBar(centerTitle: true,
-              title: const Padding(padding: EdgeInsets.only(bottom: 16),
+            flexibleSpace: const FlexibleSpaceBar(centerTitle: true,
+              title: Padding(padding: EdgeInsets.only(bottom: 16),
                 child: Text('الإعدادات', style: TextStyle(color: Colors.white,
                     fontWeight: FontWeight.bold, fontSize: 28)))),
             pinned: false, floating: true),
@@ -2648,7 +2658,7 @@ class _SettingsTabState extends State<_SettingsTab> {
                         Container(padding: const EdgeInsets.all(16), margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
                               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)]),
-                          child: DropdownButtonFormField<String>(value: _mainCurrency, decoration: _inputDeco(''),
+                          child: DropdownButtonFormField<String>(initialValue: _mainCurrency, decoration: _inputDeco(''),
                             items: _supportedCurrencies().map((c) => DropdownMenuItem(value: c,
                                 child: Text('$c ${_currencySymbol(c)}'))).toList(),
                             onChanged: (v) async {
@@ -2754,8 +2764,8 @@ class _CompanySettingsSheetState extends State<_CompanySettingsSheet> {
       child: Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
           _sheetHandle(),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(children: const [
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(children: [
               Text('معلومات الشركة', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               Spacer(), CloseButton()])),
           const Divider(height: 1),
@@ -2808,8 +2818,8 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
       child: Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Form(key: _formKey, child: Column(mainAxisSize: MainAxisSize.min, children: [
           _sheetHandle(),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(children: const [
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(children: [
               Text('تغيير كلمة المرور', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               Spacer(), CloseButton()])),
           const Divider(height: 1),
@@ -2844,8 +2854,10 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
               await user.updatePassword(_newCtrl.text);
               if (mounted) { Navigator.pop(context); _snack(context, '✅ تم تغيير كلمة المرور'); }
             } on FirebaseAuthException catch (e) {
-              if (mounted) _snack(context, e.code == 'wrong-password'
+              if (mounted) {
+                _snack(context, e.code == 'wrong-password'
                   ? '❌ كلمة المرور الحالية خاطئة' : '❌ خطأ: ${e.code}', error: true);
+              }
             } finally { if (mounted) setState(() => _saving = false); }
           }),
         ]))),

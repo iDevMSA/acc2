@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.monsati_accounting"
+    namespace = "com.example.monsati_accounting1"
 
     compileSdk = 36
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        applicationId = "com.example.monsati_accounting"
+        applicationId = "com.example.monsati_accounting1"
 
         minSdkVersion = flutter.minSdkVersion
         targetSdk = 36

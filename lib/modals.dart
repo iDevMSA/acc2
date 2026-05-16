@@ -53,9 +53,9 @@ class __NewAccountModalState extends State<_NewAccountModal> {
     return Container(
       constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.85),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -88,7 +88,7 @@ class __NewAccountModalState extends State<_NewAccountModal> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: DropdownButtonFormField<String>(
-                          value: _selectedCurrency,
+                          initialValue: _selectedCurrency,
                           decoration: InputDecoration(
                             labelText: 'عملة الحساب',
                             border: OutlineInputBorder(
@@ -518,9 +518,9 @@ class __EditAccountModalState extends State<_EditAccountModal> {
     return Container(
       constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.85),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -553,7 +553,7 @@ class __EditAccountModalState extends State<_EditAccountModal> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: DropdownButtonFormField<String>(
-                          value: _selectedCurrency,
+                          initialValue: _selectedCurrency,
                           decoration: InputDecoration(
                             labelText: 'عملة الحساب',
                             border: OutlineInputBorder(
@@ -782,7 +782,7 @@ class __MultiEntryModalState extends State<_MultiEntryModal> {
             ),
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
                 boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
               ),
@@ -891,7 +891,7 @@ class __MultiEntryModalState extends State<_MultiEntryModal> {
             ],
           ),
           DropdownButtonFormField<String>(
-            value: data['accountId'].text.isEmpty ? null : data['accountId'].text,
+            initialValue: data['accountId'].text.isEmpty ? null : data['accountId'].text,
             decoration: InputDecoration(
               labelText: 'اختر الحساب',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -1096,7 +1096,7 @@ class __EditEntryModalState extends State<_EditEntryModal> {
                                 CircularProgressIndicator(color: Color(0xFF021B79)))
                       else
                         DropdownButtonFormField<String>(
-                          value: widget.entry.accountId,
+                          initialValue: widget.entry.accountId,
                           decoration: InputDecoration(
                             labelText: 'الحساب',
                             border: OutlineInputBorder(

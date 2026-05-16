@@ -3,11 +3,8 @@
 // شاشة الترحيب والمصادقة - مع دعم معلومات الشركة
 // ─────────────────────────────────────────────────────────
 
-import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'main.dart'; // DataService, CompanyInfo, accountsNotifier, …
 import 'services/firebase_service.dart';
