@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "633240001820",
+    "firebase_url": "https://alaraby-4ccdd-default-rtdb.firebaseio.com",
+    "project_id": "alaraby-4ccdd",
+    "storage_bucket": "alaraby-4ccdd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633240001820:android:df117e3795044e8a6a2ed9",
+        "android_client_info": {
+          "package_name": "com.example.monsati_accounting1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "633240001820-16job8op50pe4l7nevr0k3st55ft81co.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDz-jDwiRUoJWd0_oHsZCLnlw--0PcDOXk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "633240001820-16job8op50pe4l7nevr0k3st55ft81co.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
