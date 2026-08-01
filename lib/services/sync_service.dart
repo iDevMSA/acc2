@@ -61,10 +61,11 @@ class SyncService {
       final List<Account> cloudAccounts = [];
       if (accSnap.exists && accSnap.value != null) {
         final map = Map<String, dynamic>.from(accSnap.value as Map);
-        for (final v in map.values) {
+        for (final e in map.entries) {
           try {
-            cloudAccounts.add(
-                Account.fromJson(Map<String, dynamic>.from(v as Map)));
+            final v = Map<String, dynamic>.from(e.value as Map);
+            if ((v['id'] as String?)?.isEmpty ?? true) v['id'] = e.key;
+            cloudAccounts.add(Account.fromJson(v));
           } catch (_) {}
         }
       }
@@ -74,10 +75,11 @@ class SyncService {
       final List<Operation> cloudOps = [];
       if (opsSnap.exists && opsSnap.value != null) {
         final map = Map<String, dynamic>.from(opsSnap.value as Map);
-        for (final v in map.values) {
+        for (final e in map.entries) {
           try {
-            cloudOps.add(
-                Operation.fromJson(Map<String, dynamic>.from(v as Map)));
+            final v = Map<String, dynamic>.from(e.value as Map);
+            if ((v['id'] as String?)?.isEmpty ?? true) v['id'] = e.key;
+            cloudOps.add(Operation.fromJson(v));
           } catch (_) {}
         }
       }

@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>المنصة المحاسبية — نظام المبيعات</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- ════════ شاشة تسجيل الدخول ════════ -->
+<div id="login-screen" class="screen active">
+  <div class="login-bg">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="logo-circle">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <path d="M8 36L24 12L40 36H8Z" fill="white" opacity="0.9"/>
+            <circle cx="24" cy="30" r="6" fill="white"/>
+          </svg>
+        </div>
+        <h1>المنصة المحاسبية</h1>
+        <p>نظام إدارة المبيعات</p>
+      </div>
+      <div id="login-error" class="login-error hidden"></div>
+      <div class="form-group">
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="email-input" placeholder="example@email.com" dir="ltr" />
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" id="pass-input" placeholder="••••••••" dir="ltr" />
+      </div>
+      <button class="btn-primary btn-full" id="login-btn" onclick="doLogin()">
+        <span id="login-text">تسجيل الدخول</span>
+        <span id="login-spinner" class="spinner hidden"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ التطبيق الرئيسي ════════ -->
+<div id="app-screen" class="screen">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+          <path d="M8 36L24 12L40 36H8Z" fill="white" opacity="0.9"/>
+          <circle cx="24" cy="30" r="6" fill="white"/>
+        </svg>
+        <div>
+          <div id="sidebar-company" class="sidebar-company">نظام المبيعات</div>
+          <div id="sidebar-user" class="sidebar-user">صاحب الحساب</div>
+        </div>
+      </div>
+    </div>
+    <!-- System Switcher -->
+    <div class="system-switcher">
+      <button class="sys-btn active" id="sys-sales-btn" onclick="switchSystem('sales')">
+        <svg viewBox="0 0 24 24" width="16"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-15.7-14H1v2h2l3.6 7.59-1.35 2.45C5.16 16.37 5 16.67 5 17c0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H18c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0022.46 4H5.21l-.94-2z"/></svg>
+        المبيعات
+      </button>
+      <button class="sys-btn" id="sys-acc-btn" onclick="switchSystem('accounting')">
+        <svg viewBox="0 0 24 24" width="16"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H6v-2h6v2zm4-4H6v-2h10v2zm0-4H6V7h10v2z"/></svg>
+        المحاسبة
+      </button>
+    </div>
+
+    <!-- ── ناف المبيعات ── -->
+    <nav class="sidebar-nav" id="nav-sales">
+      <a class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        <span>الرئيسية</span>
+      </a>
+      <a class="nav-item" data-tab="branches" onclick="switchTab('branches')">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/><path d="M6 10h12v2H6zm0 4h8v2H6z"/></svg>
+        <span>الفروع</span>
+      </a>
+      <a class="nav-item" data-tab="warehouses" onclick="switchTab('warehouses')">
+        <svg viewBox="0 0 24 24"><path d="M22 8.35V20a2 2 0 01-2 2H4a2 2 0 01-2-2V8.35A2 2 0 011 6.2l9-5.25a2 2 0 012 0L21 6.2a2 2 0 011 2.15zM18 20v-7H6v7h12z"/></svg>
+        <span>المخازن</span>
+      </a>
+      <a class="nav-item" data-tab="products" onclick="switchTab('products')">
+        <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.53 15.47 0 12 0 8.53 0 6 2.53 6 4.64c0 .48.11.92.18 1.36H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+        <span>المنتجات</span>
+      </a>
+      <a class="nav-item" data-tab="employees" onclick="switchTab('employees')">
+        <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        <span>الموظفون</span>
+      </a>
+      <a class="nav-item" data-tab="invoices" onclick="switchTab('invoices')">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+        <span>الفواتير</span>
+      </a>
+      <a class="nav-item" data-tab="reports" onclick="switchTab('reports')">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        <span>التقارير</span>
+      </a>
+      <a class="nav-item" data-tab="loyalty" onclick="switchTab('loyalty')">
+        <svg viewBox="0 0 24 24"><path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/></svg>
+        <span>الولاء</span>
+      </a>
+      <a class="nav-item" data-tab="settings" onclick="switchTab('settings')">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87a.5.5 0 00.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.5.5 0 00-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        <span>الإعدادات</span>
+      </a>
+    </nav>
+
+    <!-- ── ناف المحاسبة (مخفية افتراضياً) ── -->
+    <nav class="sidebar-nav hidden" id="nav-accounting">
+      <a class="nav-item" data-acc-tab="acc-dashboard" onclick="switchAccTab('acc-dashboard')">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        <span>لوحة التحكم</span>
+      </a>
+      <a class="nav-item" data-acc-tab="acc-accounts" onclick="switchAccTab('acc-accounts')">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        <span>الحسابات</span>
+      </a>
+      <a class="nav-item" data-acc-tab="acc-operations" onclick="switchAccTab('acc-operations')">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+        <span>القيود والعمليات</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn-logout" onclick="doLogout()">
+        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        تسجيل الخروج
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+      </button>
+      <div class="topbar-title" id="page-title">الرئيسية</div>
+      <div class="topbar-actions">
+        <div class="realtime-badge">
+          <span class="dot-live"></span>
+          متصل مباشر
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Dashboard ───────────────── -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-val" id="kpi-revenue">0</div>
+          <div class="kpi-label">إيرادات اليوم</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">🧾</div>
+          <div class="kpi-val" id="kpi-invoices">0</div>
+          <div class="kpi-label">فواتير اليوم</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-icon">🏪</div>
+          <div class="kpi-val" id="kpi-branches">0</div>
+          <div class="kpi-label">الفروع</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-icon">🖥️</div>
+          <div class="kpi-val" id="kpi-registers">0</div>
+          <div class="kpi-label">صناديق مفتوحة</div>
+        </div>
+      </div>
+
+      <div class="section-title">آخر الفواتير</div>
+      <div id="recent-invoices" class="card-list"></div>
+    </section>
+
+    <!-- ── Branches ────────────────── -->
+    <section id="tab-branches" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">الفروع</div>
+        <button class="btn-primary btn-sm" onclick="openAddBranch()">+ إضافة فرع</button>
+      </div>
+      <div id="branches-list" class="card-list"></div>
+    </section>
+
+    <!-- ── Warehouses ──────────────── -->
+    <section id="tab-warehouses" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">المخازن</div>
+        <button class="btn-primary btn-sm" onclick="openAddWarehouse()">+ إضافة مخزن</button>
+      </div>
+      <div id="warehouses-list" class="card-list"></div>
+    </section>
+
+    <!-- ── Products ────────────────── -->
+    <section id="tab-products" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">المنتجات</div>
+        <button class="btn-primary btn-sm" onclick="openAddProduct()">+ إضافة منتج</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="product-search" placeholder="🔍  بحث عن منتج..." oninput="filterProducts()" />
+      </div>
+      <div id="products-list" class="card-list"></div>
+    </section>
+
+    <!-- ── Employees ───────────────── -->
+    <section id="tab-employees" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">الموظفون</div>
+        <button class="btn-primary btn-sm" onclick="openAddEmployee()">+ إضافة موظف</button>
+      </div>
+      <div id="employees-list" class="card-list"></div>
+    </section>
+
+    <!-- ── Invoices ────────────────── -->
+    <section id="tab-invoices" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">الفواتير</div>
+        <div class="date-filters">
+          <input type="date" id="inv-from" onchange="filterInvoices()" />
+          <span>إلى</span>
+          <input type="date" id="inv-to" onchange="filterInvoices()" />
+        </div>
+      </div>
+      <div id="invoices-list" class="card-list"></div>
+    </section>
+
+    <!-- ── Reports ─────────────────── -->
+    <section id="tab-reports" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">التقارير والإحصائيات</div>
+        <div class="date-filters">
+          <input type="date" id="rep-from" onchange="loadReports()" />
+          <span>إلى</span>
+          <input type="date" id="rep-to" onchange="loadReports()" />
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-icon">📈</div>
+          <div class="kpi-val" id="rep-revenue">0</div>
+          <div class="kpi-label">إجمالي الإيرادات</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">🧾</div>
+          <div class="kpi-val" id="rep-count">0</div>
+          <div class="kpi-label">عدد الفواتير</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-icon">➗</div>
+          <div class="kpi-val" id="rep-avg">0</div>
+          <div class="kpi-label">متوسط الفاتورة</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-icon">🏷️</div>
+          <div class="kpi-val" id="rep-vat">0</div>
+          <div class="kpi-label">إجمالي الضريبة</div>
+        </div>
+      </div>
+      <div class="reports-grid">
+        <div class="report-card">
+          <div class="report-card-title">توزيع طرق الدفع</div>
+          <div id="payment-chart" class="bar-chart-wrap"></div>
+        </div>
+        <div class="report-card">
+          <div class="report-card-title">أكثر المنتجات مبيعاً</div>
+          <div id="products-chart" class="bar-chart-wrap"></div>
+        </div>
+      </div>
+      <div class="report-card full-width">
+        <div class="report-card-title">المبيعات اليومية</div>
+        <div id="daily-chart" class="bar-chart-wrap"></div>
+      </div>
+    </section>
+
+    <!-- ── Loyalty ──────────────────── -->
+    <section id="tab-loyalty" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">برنامج الولاء</div>
+        <button class="btn-primary btn-sm" onclick="openAddLoyalty()">+ إضافة عميل</button>
+      </div>
+      <div id="loyalty-stats" class="kpi-grid" style="margin-bottom:24px">
+        <div class="kpi-card blue">
+          <div class="kpi-icon">👥</div>
+          <div class="kpi-val" id="loyal-count">0</div>
+          <div class="kpi-label">إجمالي العملاء</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">⭐</div>
+          <div class="kpi-val" id="loyal-points">0</div>
+          <div class="kpi-label">إجمالي النقاط</div>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="loyalty-search" placeholder="🔍  بحث باسم أو رقم الهاتف..." oninput="filterLoyalty()" />
+      </div>
+      <div id="loyalty-list" class="card-list"></div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         قسم النظام المحاسبي (مخفي افتراضياً)
+         ══════════════════════════════════════════════ -->
+
+    <!-- ── Accounting Dashboard ──────────────────── -->
+    <section id="tab-acc-dashboard" class="tab-content">
+      <div class="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-icon">💵</div>
+          <div class="kpi-val" id="acc-kpi-balance">0 $</div>
+          <div class="kpi-label">الرصيد الإجمالي (USD)</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">📋</div>
+          <div class="kpi-val" id="acc-kpi-accounts">0</div>
+          <div class="kpi-label">عدد الحسابات</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-icon">📝</div>
+          <div class="kpi-val" id="acc-kpi-ops">0</div>
+          <div class="kpi-label">إجمالي القيود</div>
+        </div>
+        <div class="kpi-card orange">
+          <div class="kpi-icon">📈</div>
+          <div class="kpi-val" id="acc-kpi-in">0 $</div>
+          <div class="kpi-label">إجمالي الوارد</div>
+        </div>
+      </div>
+      <div class="section-title">آخر القيود المحاسبية</div>
+      <div id="acc-recent-ops" class="card-list"></div>
+    </section>
+
+    <!-- ── Accounting: Accounts ───────────────────── -->
+    <section id="tab-acc-accounts" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">الحسابات</div>
+        <button class="btn-primary btn-sm" onclick="openAddAccount()">+ إضافة حساب</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="acc-accounts-search" placeholder="🔍  بحث عن حساب..." oninput="filterAccounts()" />
+      </div>
+      <div id="acc-accounts-list" class="card-list"></div>
+    </section>
+
+    <!-- ── Accounting: Operations ─────────────────── -->
+    <section id="tab-acc-operations" class="tab-content">
+      <div class="section-header">
+        <div class="section-title">القيود والعمليات</div>
+        <button class="btn-primary btn-sm" onclick="openAddOperation()">+ إضافة قيد</button>
+      </div>
+      <div class="acc-filter-bar">
+        <select id="op-filter-account" onchange="filterOperations()">
+          <option value="">كل الحسابات</option>
+        </select>
+        <input type="date" id="op-filter-from" onchange="filterOperations()" />
+        <span>إلى</span>
+        <input type="date" id="op-filter-to" onchange="filterOperations()" />
+      </div>
+      <div id="acc-operations-list" class="card-list" style="margin-top:16px"></div>
+    </section>
+
+    <!-- ── Settings ─────────────────── -->
+    <section id="tab-settings" class="tab-content">
+      <div class="section-title">إعدادات الشركة</div>
+      <div class="settings-card">
+        <div class="form-group">
+          <label>اسم الشركة</label>
+          <input type="text" id="set-company" placeholder="اسم الشركة" />
+        </div>
+        <div class="form-group">
+          <label>رقم الهاتف</label>
+          <input type="tel" id="set-phone" placeholder="05XXXXXXXX" dir="ltr" />
+        </div>
+        <div class="form-group">
+          <label>العنوان</label>
+          <input type="text" id="set-address" placeholder="المدينة، الحي..." />
+        </div>
+        <div class="form-group">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="set-email" placeholder="info@company.com" dir="ltr" />
+        </div>
+        <div class="form-group">
+          <label>العملة الرئيسية</label>
+          <div class="currency-wrap">
+            <div id="selected-currency-btn" class="currency-selected" onclick="toggleCurrencyPicker()">
+              <span id="cur-symbol">ر.س</span>
+              <span id="cur-name">ريال سعودي (SAR)</span>
+              <svg viewBox="0 0 24 24" width="18"><path d="M7 10l5 5 5-5z"/></svg>
+            </div>
+            <div id="currency-picker" class="currency-picker hidden">
+              <input type="text" placeholder="🔍 بحث..." id="cur-search" oninput="filterCurrencies()" />
+              <div id="cur-list" class="cur-list"></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn-primary btn-md" onclick="saveSettings()" id="save-settings-btn">
+          <span id="save-text">حفظ الإعدادات</span>
+          <span id="save-spinner" class="spinner hidden"></span>
+        </button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ════════ مودال تفاصيل الفاتورة ════════ -->
+<div id="invoice-detail-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'invoice-detail-modal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="inv-modal-title">تفاصيل الفاتورة</h3>
+      <button class="modal-close" onclick="closeModal('invoice-detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="invoice-detail-body"></div>
+  </div>
+</div>
+
+<!-- ════════ مودال الفرع (إضافة / تعديل) ════════ -->
+<div id="branch-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'branch-modal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="branch-modal-title">إضافة فرع جديد</h3>
+      <button class="modal-close" onclick="closeModal('branch-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>اسم الفرع *</label><input type="text" id="br-name" /></div>
+      <div class="form-group"><label>العنوان</label><input type="text" id="br-address" /></div>
+      <div class="form-group">
+        <label>نوع النشاط</label>
+        <select id="br-type">
+          <option value="store">متجر</option>
+          <option value="restaurant">مطعم</option>
+          <option value="cafe">كافيه</option>
+          <option value="clinic">عيادة</option>
+          <option value="salon">صالون</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary btn-flex" id="branch-save-btn" onclick="saveBranch()">حفظ</button>
+        <button class="btn-danger hidden" id="branch-del-btn" onclick="deleteBranchFromModal()">🗑️ حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ مودال المخزن (إضافة / تعديل) ════════ -->
+<div id="warehouse-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'warehouse-modal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="warehouse-modal-title">إضافة مخزن جديد</h3>
+      <button class="modal-close" onclick="closeModal('warehouse-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>اسم المخزن *</label><input type="text" id="wh-name" /></div>
+      <div class="form-group"><label>الفرع</label><select id="wh-branch"></select></div>
+      <div class="modal-actions">
+        <button class="btn-primary btn-flex" id="warehouse-save-btn" onclick="saveWarehouse()">حفظ</button>
+        <button class="btn-danger hidden" id="warehouse-del-btn" onclick="deleteWarehouseFromModal()">🗑️ حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ مودال المنتج (إضافة / تعديل) ════════ -->
+<div id="product-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'product-modal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="product-modal-title">إضافة منتج جديد</h3>
+      <button class="modal-close" onclick="closeModal('product-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>اسم المنتج *</label><input type="text" id="pr-name" /></div>
+        <div class="form-group"><label>المخزن</label><select id="pr-warehouse"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>سعر التكلفة</label><input type="number" id="pr-cost" placeholder="0" min="0" /></div>
+        <div class="form-group"><label>سعر البيع *</label><input type="number" id="pr-price" placeholder="0" min="0" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>الكمية</label><input type="number" id="pr-qty" placeholder="0" min="0" /></div>
+        <div class="form-group"><label>نسبة الضريبة %</label><input type="number" id="pr-vat" placeholder="0" min="0" max="100" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>الباركود</label><input type="text" id="pr-barcode" dir="ltr" /></div>
+        <div class="form-group"><label>التصنيف</label><input type="text" id="pr-category" /></div>
+      </div>
+      <div class="form-group">
+        <label>وصف المنتج</label>
+        <textarea id="pr-desc" rows="2" placeholder="وصف اختياري..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary btn-flex" id="product-save-btn" onclick="saveProduct()">حفظ المنتج</button>
+        <button class="btn-danger hidden" id="product-del-btn" onclick="deleteProductFromModal()">🗑️ حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ مودال الموظف (إضافة / تعديل) ════════ -->
+<div id="employee-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'employee-modal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="employee-modal-title">إضافة موظف جديد</h3>
+      <button class="modal-close" onclick="closeModal('employee-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>الاسم الكامل *</label><input type="text" id="emp-name" placeholder="اسم الموظف" /></div>
+      <div class="form-group"><label>البريد الإلكتروني</label><input type="email" id="emp-email" placeholder="employee@company.com" dir="ltr" /></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>الدور الوظيفي</label>
+          <select id="emp-role">
+            <option value="cashier">كاشير</option>
+            <option value="manager">مدير</option>
+            <option value="owner">مالك</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>الفرع</label>
+          <select id="emp-branch"></select>
+        </div>
+      </div>
+      <div class="form-group"><label>رقم الهاتف</label><input type="tel" id="emp-phone" placeholder="05XXXXXXXX" dir="ltr" /></div>
+      <div class="modal-actions">
+        <button class="btn-primary btn-flex" id="employee-save-btn" onclick="saveEmployee()">حفظ الموظف</button>
+        <button class="btn-danger hidden" id="employee-del-btn" onclick="deleteEmployeeFromModal()">🗑️ حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ مودال عميل الولاء (إضافة / تعديل) ════════ -->
+<div id="loyalty-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'loyalty-modal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="loyalty-modal-title">إضافة عميل ولاء</h3>
+      <button class="modal-close" onclick="closeModal('loyalty-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>الاسم *</label><input type="text" id="loy-name" placeholder="اسم العميل" /></div>
+      <div class="form-group"><label>رقم الهاتف *</label><input type="tel" id="loy-phone" placeholder="05XXXXXXXX" dir="ltr" /></div>
+      <div class="form-group"><label>عدد النقاط</label><input type="number" id="loy-points" placeholder="0" min="0" /></div>
+      <div class="form-group"><label>ملاحظات</label><input type="text" id="loy-notes" placeholder="ملاحظات اختيارية..." /></div>
+      <div class="modal-actions">
+        <button class="btn-primary btn-flex" id="loyalty-save-btn" onclick="saveLoyaltyCustomer()">حفظ العميل</button>
+        <button class="btn-danger hidden" id="loyalty-del-btn" onclick="deleteLoyaltyFromModal()">🗑️ حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ مودال الحساب المحاسبي (إضافة / تعديل) ════════ -->
+<div id="account-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'account-modal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="account-modal-title">إضافة حساب جديد</h3>
+      <button class="modal-close" onclick="closeModal('account-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>اسم الحساب *</label>
+        <input type="text" id="acc-name" placeholder="اسم الحساب أو الشركة" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>رمز الحساب</label>
+          <input type="text" id="acc-code" placeholder="1001" dir="ltr" />
+        </div>
+        <div class="form-group">
+          <label>التصنيف المحاسبي</label>
+          <select id="acc-category">
+            <option value="asset">أصول</option>
+            <option value="liability">خصوم</option>
+            <option value="equity">حقوق ملكية</option>
+            <option value="revenue">إيرادات</option>
+            <option value="expense">مصروفات</option>
+            <option value="other" selected>أخرى</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>رقم الهاتف</label>
+          <input type="tel" id="acc-phone" placeholder="05XXXXXXXX" dir="ltr" />
+        </div>
+        <div class="form-group">
+          <label>نوع الحساب</label>
+          <select id="acc-type">
+            <option value="cash">نقدي</option>
+            <option value="bank">بنكي</option>
+            <option value="usdt">USDT</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>العنوان</label>
+        <input type="text" id="acc-address" placeholder="المدينة، الشارع..." />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary btn-flex" id="account-save-btn" onclick="saveAccount()">حفظ الحساب</button>
+        <button class="btn-danger hidden" id="account-del-btn" onclick="deleteAccountFromModal()">🗑️ حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ مودال القيد المحاسبي (إضافة / تعديل) ════════ -->
+<div id="operation-modal" class="modal-overlay hidden" onclick="closeModalOutside(event,'operation-modal')">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="operation-modal-title">إضافة قيد محاسبي</h3>
+      <button class="modal-close" onclick="closeModal('operation-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>الحساب *</label>
+        <select id="op-account-select"></select>
+      </div>
+      <div class="form-group">
+        <label>البيان / الوصف *</label>
+        <input type="text" id="op-statement" placeholder="وصف العملية..." />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>المبلغ * <small style="color:#64748b">(موجب = دائن، سالب = مدين)</small></label>
+          <input type="number" id="op-amount" placeholder="0.00" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label>العملة</label>
+          <select id="op-currency"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>سعر الصرف مقابل USD</label>
+          <input type="number" id="op-exchange-rate" placeholder="1.0" step="0.0001" value="1" dir="ltr" />
+        </div>
+        <div class="form-group">
+          <label>المبلغ بالدولار (USD)</label>
+          <input type="number" id="op-amount-usd" placeholder="احسب تلقائياً" step="0.01" dir="ltr" readonly style="background:#f8fafc" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>التاريخ</label>
+        <input type="date" id="op-date" />
+      </div>
+      <div class="op-calc-hint" id="op-calc-hint"></div>
+      <div class="modal-actions">
+        <button class="btn-primary btn-flex" id="operation-save-btn" onclick="saveOperation()">حفظ القيد</button>
+        <button class="btn-danger hidden" id="operation-del-btn" onclick="deleteOperationFromModal()">🗑️ حذف</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ Toast ════════ -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- Firebase SDK -->
+<script type="module" src="app.js"></script>
+</body>
+</html>
