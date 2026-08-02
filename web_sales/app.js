@@ -89,6 +89,15 @@ function currencySym(code) {
   return (CURRENCIES.find(c => c.code === code) || { sym: code }).sym;
 }
 
+// يمنع XSS المخزّن: أي نص يُدخله المستخدم (اسم حساب/فرع/منتج/موظف،
+// بيان عملية، بيانات فاتورة...) يُدرَج عبر innerHTML في هذا الملف،
+// فيجب تحويل أحرف HTML الخاصة إلى كيانات نصية قبل إدراجه.
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
 // نفس قائمة CURRENCIES الكاملة (مع USDT) تُستخدم في كل مكان يُدخل فيه مبلغ بعملة
 // — موحّدة مع قائمة العملات في تطبيق الجوال (kAllCurrencies)
 function buildOpCurrencyOptions(selected) {
@@ -171,7 +180,7 @@ function mapAuthError(code) {
 // ── Real-time Listeners ─────────────────────────────────────────
 function startListeners() {
   addListener(`sales/${ownerUid}/settings`,              onSettings);
-  addListener(`sales/${ownerUid}/ownerProfile/companyInfo`, onCompanyInfo);
+  addListener(`users/${ownerUid}/companyInfo`, onCompanyInfo);
   addListener(`sales/${ownerUid}/branches`,              onBranches);
   addListener(`sales/${ownerUid}/warehouses`,            onWarehouses);
   addListener(`sales/${ownerUid}/products`,              onProducts);
@@ -236,8 +245,8 @@ function renderBranches() {
     <div class="card-item" onclick="openEditBranch('${id}')">
       <div class="card-icon">🏪</div>
       <div class="card-info">
-        <div class="card-title">${b.name}</div>
-        <div class="card-sub">${typeLabel(b.type)}${b.address ? ' · ' + b.address : ''}</div>
+        <div class="card-title">${escapeHtml(b.name)}</div>
+        <div class="card-sub">${typeLabel(b.type)}${b.address ? ' · ' + escapeHtml(b.address) : ''}</div>
       </div>
       <span class="badge badge-blue">${typeLabel(b.type)}</span>
     </div>`).join('');
@@ -322,10 +331,10 @@ function renderWarehouses() {
     <div class="card-item" onclick="openEditWarehouse('${id}')">
       <div class="card-icon">🏭</div>
       <div class="card-info">
-        <div class="card-title">${w.name}</div>
-        <div class="card-sub">الفرع: ${allBranches[w.branchId]?.name || '—'}</div>
+        <div class="card-title">${escapeHtml(w.name)}</div>
+        <div class="card-sub">الفرع: ${escapeHtml(allBranches[w.branchId]?.name || '—')}</div>
       </div>
-      <span class="badge badge-orange">${allBranches[w.branchId]?.name || 'بدون فرع'}</span>
+      <span class="badge badge-orange">${escapeHtml(allBranches[w.branchId]?.name || 'بدون فرع')}</span>
     </div>`).join('');
 }
 
@@ -417,12 +426,12 @@ function renderProducts() {
     <div class="card-item" onclick="openEditProduct('${id}')">
       <div class="card-icon">📦</div>
       <div class="card-info">
-        <div class="card-title">${p.name}</div>
+        <div class="card-title">${escapeHtml(p.name)}</div>
         <div class="card-sub">
-          ${p.category ? p.category + ' · ' : ''}
+          ${p.category ? escapeHtml(p.category) + ' · ' : ''}
           الكمية: <b>${p.quantity || 0}</b> ·
           السعر: <b>${p.sellPrice || 0} ${currencySym(currency)}</b>
-          ${p.barcode ? ' · ' + p.barcode : ''}
+          ${p.barcode ? ' · ' + escapeHtml(p.barcode) : ''}
         </div>
       </div>
       <div class="card-badge">
@@ -525,11 +534,11 @@ function renderEmployees() {
     <div class="card-item" onclick="openEditEmployee('${id}')">
       <div class="card-icon">👤</div>
       <div class="card-info">
-        <div class="card-title">${e.name}</div>
+        <div class="card-title">${escapeHtml(e.name)}</div>
         <div class="card-sub">
-          ${e.email ? e.email + ' · ' : ''}
+          ${e.email ? escapeHtml(e.email) + ' · ' : ''}
           ${roleLabel(e.role)}
-          ${allBranches[e.branchId] ? ' · ' + allBranches[e.branchId].name : ''}
+          ${allBranches[e.branchId] ? ' · ' + escapeHtml(allBranches[e.branchId].name) : ''}
         </div>
       </div>
       <span class="badge ${e.role === 'owner' ? 'badge-blue' : e.role === 'manager' ? 'badge-orange' : 'badge-green'}">
@@ -637,8 +646,8 @@ function renderInvoices() {
     <div class="card-item" onclick="showInvoiceDetail('${id}')">
       <div class="card-icon">🧾</div>
       <div class="card-info">
-        <div class="card-title">${inv.number}</div>
-        <div class="card-sub">${formatDate(inv.createdAt)} · ${inv.createdByName || '—'}</div>
+        <div class="card-title">${escapeHtml(inv.number)}</div>
+        <div class="card-sub">${formatDate(inv.createdAt)} · ${escapeHtml(inv.createdByName || '—')}</div>
       </div>
       <div>
         <div class="card-badge">${totalInv(inv).toFixed(2)} ${currencySym(currency)}</div>
@@ -682,7 +691,7 @@ window.showInvoiceDetail = function(id) {
   const tot = totalInv(inv);
   const items = (inv.items||[]).map(i => `
     <tr>
-      <td>${i.productName}</td>
+      <td>${escapeHtml(i.productName)}</td>
       <td>×${i.quantity}</td>
       <td>${i.unitPrice.toFixed(2)}</td>
       <td>${(i.vatRate||0).toFixed(0)}%</td>
@@ -692,23 +701,23 @@ window.showInvoiceDetail = function(id) {
     <div class="inv-header-card">
       <div class="inv-header-row">
         <div>
-          <div class="inv-company">${companyInfo.name || 'الشركة'}</div>
+          <div class="inv-company">${escapeHtml(companyInfo.name || 'الشركة')}</div>
           <div class="inv-sub">فاتورة مبيعات</div>
         </div>
         <div class="inv-badge">فاتورة</div>
       </div>
       <div class="inv-meta-row">
-        <div class="inv-meta-item"><label>رقم الفاتورة</label><span>${inv.number}</span></div>
+        <div class="inv-meta-item"><label>رقم الفاتورة</label><span>${escapeHtml(inv.number)}</span></div>
         <div class="inv-meta-item"><label>التاريخ</label><span>${formatDate(inv.createdAt)}</span></div>
-        <div class="inv-meta-item"><label>الموظف</label><span>${inv.createdByName||'—'}</span></div>
+        <div class="inv-meta-item"><label>الموظف</label><span>${escapeHtml(inv.createdByName||'—')}</span></div>
         <div class="inv-meta-item"><label>طريقة الدفع</label><span>${payLabel(inv.paymentMethod)}</span></div>
       </div>
     </div>
     ${inv.customerName||inv.customerPhone ? `
     <div class="inv-section">
       <div class="inv-section-title">بيانات العميل</div>
-      ${inv.customerName ? `<div>الاسم: <b>${inv.customerName}</b></div>` : ''}
-      ${inv.customerPhone ? `<div>الهاتف: <b dir="ltr">${inv.customerPhone}</b></div>` : ''}
+      ${inv.customerName ? `<div>الاسم: <b>${escapeHtml(inv.customerName)}</b></div>` : ''}
+      ${inv.customerPhone ? `<div>الهاتف: <b dir="ltr">${escapeHtml(inv.customerPhone)}</b></div>` : ''}
     </div>` : ''}
     <div class="inv-section">
       <div class="inv-section-title">تفاصيل الطلب</div>
@@ -729,7 +738,7 @@ window.showInvoiceDetail = function(id) {
     </div>
     <div class="signature-box">
       <div class="sig-title">تم الإنشاء بواسطة المنصة المحاسبية</div>
-      <div class="sig-sub">نسخة مرخصة لصالح: ${companyInfo.name||'الشركة'}</div>
+      <div class="sig-sub">نسخة مرخصة لصالح: ${escapeHtml(companyInfo.name||'الشركة')}</div>
     </div>`;
   openModal('invoice-detail-modal');
 };
@@ -764,8 +773,8 @@ function refreshDashboard() {
     <div class="card-item" onclick="showInvoiceDetail('${id}')">
       <div class="card-icon">🧾</div>
       <div class="card-info">
-        <div class="card-title">${inv.number}</div>
-        <div class="card-sub">${formatTime(inv.createdAt)} · ${inv.createdByName||'—'}</div>
+        <div class="card-title">${escapeHtml(inv.number)}</div>
+        <div class="card-sub">${formatTime(inv.createdAt)} · ${escapeHtml(inv.createdByName||'—')}</div>
       </div>
       <div class="card-badge">${totalInv(inv).toFixed(2)} ${sym}</div>
     </div>`).join('');
@@ -836,7 +845,7 @@ function renderBarChart(elId, data, unit) {
   const max = Math.max(...entries.map(e=>e[1]));
   el.innerHTML = entries.map(([label, val]) => `
     <div class="bar-row">
-      <div class="bar-label">${label}</div>
+      <div class="bar-label">${escapeHtml(label)}</div>
       <div class="bar-track">
         <div class="bar-fill" style="width:${max>0?val/max*100:0}%"></div>
       </div>
@@ -871,8 +880,8 @@ function renderLoyalty() {
     <div class="card-item" onclick="openEditLoyalty('${id}')">
       <div class="card-icon">💖</div>
       <div class="card-info">
-        <div class="card-title">${c.name||'—'}</div>
-        <div class="card-sub" dir="ltr">${c.phone||''}${c.notes ? ' · ' + c.notes : ''}</div>
+        <div class="card-title">${escapeHtml(c.name||'—')}</div>
+        <div class="card-sub" dir="ltr">${escapeHtml(c.phone||'')}${c.notes ? ' · ' + escapeHtml(c.notes) : ''}</div>
       </div>
       <div style="text-align:center">
         <div class="card-badge">⭐ ${c.points||0} نقطة</div>
@@ -957,8 +966,8 @@ window.saveSettings = async function() {
   try {
     // حفظ العملة
     await set(ref(db, `sales/${ownerUid}/settings/currency`), currency);
-    // حفظ معلومات الشركة في ownerProfile (نفس مسار التطبيق)
-    await set(ref(db, `sales/${ownerUid}/ownerProfile/companyInfo`), {
+    // حفظ معلومات الشركة — نفس مصدر النظام المحاسبي الرئيسي (users/{uid}/companyInfo)
+    await set(ref(db, `users/${ownerUid}/companyInfo`), {
       name:    document.getElementById('set-company').value.trim(),
       phone:   document.getElementById('set-phone').value.trim(),
       address: document.getElementById('set-address').value.trim(),
@@ -1219,11 +1228,11 @@ function renderAccounts() {
     <div class="card-item" onclick="openEditAccount('${id}')">
       <div class="card-icon">${accTypeIcon(acc.type)}</div>
       <div class="card-info">
-        <div class="card-title">${acc.code ? acc.code + ' - ' : ''}${acc.name}</div>
+        <div class="card-title">${acc.code ? escapeHtml(acc.code) + ' - ' : ''}${escapeHtml(acc.name)}</div>
         <div class="card-sub">
           ${accCategoryLabel(acc.category)} · ${accTypeLabel(acc.type)}
-          ${acc.phone ? ' · ' + acc.phone : ''}
-          ${acc.address ? ' · ' + acc.address : ''}
+          ${acc.phone ? ' · ' + escapeHtml(acc.phone) : ''}
+          ${acc.address ? ' · ' + escapeHtml(acc.address) : ''}
         </div>
       </div>
       <div class="acc-balance-tag">
@@ -1294,9 +1303,9 @@ function renderOperations() {
     <div class="card-item" onclick="openEditOperation('${id}')">
       <div class="card-icon">${amt >= 0 ? '📥' : '📤'}</div>
       <div class="card-info">
-        <div class="card-title">${op.statement || '—'}</div>
+        <div class="card-title">${escapeHtml(op.statement || '—')}</div>
         <div class="card-sub">
-          ${accName} · ${op.date || '—'}
+          ${escapeHtml(accName)} · ${op.date || '—'}
           ${cur !== 'USD' ? ` · ${orig.toFixed(2)} ${cur}` : ''}
         </div>
       </div>
@@ -1434,8 +1443,8 @@ function renderAccDashboard() {
     <div class="card-item" onclick="openEditOperation('${id}')">
       <div class="card-icon">${amt >= 0 ? '📥' : '📤'}</div>
       <div class="card-info">
-        <div class="card-title">${op.statement || '—'}</div>
-        <div class="card-sub">${accName} · ${op.date || '—'}</div>
+        <div class="card-title">${escapeHtml(op.statement || '—')}</div>
+        <div class="card-sub">${escapeHtml(accName)} · ${op.date || '—'}</div>
       </div>
       <div class="${cls}">${sign}${amt.toFixed(2)} $</div>
     </div>`;

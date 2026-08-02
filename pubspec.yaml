@@ -1,7 +1,7 @@
 name: monsati_accounting
 description: منصتي المحاسبية — نظام محاسبي ذكي ومتكامل
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.0.3+4
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -34,6 +34,9 @@ dependencies:
   # ── التخزين المحلي ───────────────────────────────────────────────
   shared_preferences:    ^2.3.0
   flutter_secure_storage: ^9.2.4   # نظام المبيعات (sales_sys)
+  drift:                  ^2.20.0  # قاعدة بيانات SQLite محلية (بديل JSON blob)
+  sqlite3_flutter_libs:   ^0.5.24
+  path:                   ^1.9.0
 
   # ── الشبكة ───────────────────────────────────────────────────────
   http:               ^1.2.0      # مساعد الذكاء الاصطناعي
@@ -49,15 +52,18 @@ dependencies:
   font_awesome_flutter:  ^11.0.0   # أيقونة واتساب
   google_fonts:          ^6.2.1    # نظام المبيعات (sales_sys)
   url_launcher:          ^6.3.1
-  share_plus:            ^9.0.0    # نظام المبيعات (sales_sys)
+  share_plus:            ^10.0.0   # نظام المبيعات (sales_sys)
   package_info_plus:     ^8.0.0    # نظام المبيعات (sales_sys)
   mobile_scanner:        ^6.0.0    # نظام المبيعات (sales_sys)
   path_provider:         ^2.1.0
+  sqlite3: ^3.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  drift_dev:     ^2.20.0
+  build_runner:  ^2.4.13
 
 flutter:
   uses-material-design: true

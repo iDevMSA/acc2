@@ -3,11 +3,8 @@
 // خدمة المزامنة — متوافقة مع النموذج الجديد (Account + Operation)
 // ─────────────────────────────────────────────────────────
 
-import 'dart:convert';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../main.dart';
 // يستورد: Account, Operation, DataService,
@@ -117,28 +114,9 @@ class SyncService {
     final mergedOps = opsMap.values.toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    // حفظ محلي مباشر (bypass pending queue لتجنب التكرار)
-    final prefs = await SharedPreferences.getInstance();
-    final prefix = '${_uid}_';
-
-    await prefs.setString(
-      '${prefix}local_accounts',
-      jsonEncode(mergedAccounts.map((a) => a.toJson()).toList()),
-    );
-    await prefs.setString(
-      '${prefix}local_operations',
-      jsonEncode(mergedOps.map((o) => o.toJson()).toList()),
-    );
-
-    // تحديث الـ Notifiers
-    accountsNotifier.value = List.from(mergedAccounts);
-    operationsNotifier.value = List.from(mergedOps);
-
-    double total = 0;
-    for (final op in mergedOps) {
-      total += op.amountUSD;
-    }
-    balanceNotifier.value = double.parse(total.toStringAsFixed(6));
+    // حفظ محلي مباشر عبر DataService (bypass pending queue لتجنب التكرار)
+    // — يستبدل القائمة كاملة في Drift ويحدّث الـ notifiers
+    await DataService.replaceAllAccountsAndOperations(mergedAccounts, mergedOps);
   }
 
   // ─────────────────────────────────────────

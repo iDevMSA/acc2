@@ -13,12 +13,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'sales_sys/smain.dart';
 import 'sales_sys/currencies.dart' show kAllCurrencies, currencySymbol;
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui' as ui;
 
+import 'data/app_database.dart' as db;
 import 'firebase_options.dart';
 import 'welcome.dart';
 import 'services/sync_service.dart';
@@ -30,7 +32,6 @@ import 'splash_screen.dart';
 import 'acc_sys/client_portal.dart';
 import 'acc_sys/acc_service.dart';
 import 'acc_sys/chart_screen.dart';
-import 'acc_sys/journal_screen.dart';
 import 'acc_sys/acc_reports.dart';
 import 'services/update_service.dart';
 import 'services/user_profile_service.dart';
@@ -326,12 +327,20 @@ class DataService {
   static const String _mainCurrencyKey = 'main_currency';
   static const String _pendingKey = 'pending_sync';
   static const String _companyKey = 'company_info';
+  static const String _driftMigratedKey = 'drift_migrated';
   static DatabaseReference _userRef(String uid) =>
       FirebaseDatabase.instance.ref('users/$uid');
   static DatabaseReference _accountsRef(String uid) =>
       _userRef(uid).child('accounts');
   static DatabaseReference _opsRef(String uid) =>
       _userRef(uid).child('operations');
+
+  // قاعدة بيانات محلية واحدة (SQLite عبر Drift) — تحل محل
+  // JSON blob واحد ضخم في SharedPreferences كان يُعاد تحليله/تشفيره
+  // بالكامل مع كل عملية قراءة/كتابة (راجع lib/data/app_database.dart)
+  static final db.AppDatabase _db = db.AppDatabase();
+
+  static String get _uid => FirebaseAuth.instance.currentUser?.uid ?? 'guest';
 
   static String get _prefix {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? 'guest';
@@ -340,6 +349,119 @@ class DataService {
 
   static Future<SharedPreferences> get _prefs =>
       SharedPreferences.getInstance();
+
+  // ── تحويل بين نماذج التطبيق وصفوف Drift ─────────────────
+  static db.AccountsTableCompanion _accountToCompanion(String uid, Account a) =>
+      db.AccountsTableCompanion.insert(
+        id: a.id,
+        ownerUid: uid,
+        name: a.name,
+        phone: db.Value(a.phone),
+        address: db.Value(a.address),
+        type: db.Value(a.type),
+        code: db.Value(a.code),
+        category: db.Value(a.category),
+        allowClientLogin: db.Value(a.allowClientLogin),
+        clientPhone: db.Value(a.clientPhone),
+        clientEmail: db.Value(a.clientEmail),
+        clientUid: db.Value(a.clientUid),
+        createdAt: a.createdAt,
+      );
+
+  static Account _accountFromRow(db.AccountsTableData r) => Account(
+        id: r.id,
+        name: r.name,
+        phone: r.phone,
+        address: r.address,
+        type: r.type,
+        createdAt: r.createdAt,
+        code: r.code,
+        category: r.category,
+        allowClientLogin: r.allowClientLogin,
+        clientPhone: r.clientPhone,
+        clientEmail: r.clientEmail,
+        clientUid: r.clientUid,
+      );
+
+  static db.OperationsTableCompanion _operationToCompanion(
+          String uid, Operation o) =>
+      db.OperationsTableCompanion.insert(
+        id: o.id,
+        ownerUid: uid,
+        accountId: o.accountId,
+        amount: o.amount,
+        exchangeRate: db.Value(o.exchangeRate),
+        currency: db.Value(o.currency),
+        amountUSD: o.amountUSD,
+        statement: db.Value(o.statement),
+        date: o.date,
+      );
+
+  static Operation _operationFromRow(db.OperationsTableData r) => Operation(
+        id: r.id,
+        accountId: r.accountId,
+        amount: r.amount,
+        exchangeRate: r.exchangeRate,
+        currency: r.currency,
+        amountUSD: r.amountUSD,
+        statement: r.statement,
+        date: r.date,
+      );
+
+  // ── ترحيل لمرة واحدة من SharedPreferences (JSON) إلى Drift ──
+  // يُبقي المفاتيح القديمة كشبكة أمان (لا تُحذف هنا)، ويُعلَّم بعلم
+  // خاص بكل مستخدم حتى لا يُعاد الترحيل في كل تشغيل.
+  static Future<void> migrateToDriftIfNeeded() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final uid = user.uid;
+    final p = await _prefs;
+    if (p.getBool('${uid}_$_driftMigratedKey') == true) return;
+    try {
+      final rawAcc = p.getString('${uid}_$_accountsKey');
+      if (rawAcc != null) {
+        final list = jsonDecode(rawAcc) as List;
+        final accounts = list.map((j) => Account.fromJson(j)).toList();
+        if (accounts.isNotEmpty) {
+          await _db.batch((b) => b.insertAll(
+              _db.accountsTable,
+              accounts.map((a) => _accountToCompanion(uid, a)).toList(),
+              mode: db.InsertMode.insertOrReplace));
+        }
+      }
+      final rawOps = p.getString('${uid}_$_opsKey');
+      if (rawOps != null) {
+        final list = jsonDecode(rawOps) as List;
+        final ops = list.map((j) => Operation.fromJson(j)).toList();
+        if (ops.isNotEmpty) {
+          await _db.batch((b) => b.insertAll(
+              _db.operationsTable,
+              ops.map((o) => _operationToCompanion(uid, o)).toList(),
+              mode: db.InsertMode.insertOrReplace));
+        }
+      }
+      final rawPending = p.getString('${uid}_$_pendingKey');
+      if (rawPending != null) {
+        final list = List<Map<String, dynamic>>.from(jsonDecode(rawPending));
+        if (list.isNotEmpty) {
+          await _db.batch((b) => b.insertAll(
+              _db.pendingSyncItems,
+              list.map((item) => db.PendingSyncItemsCompanion.insert(
+                    ownerUid: uid,
+                    entity: item['entity'] as String,
+                    entityId: item['id'] as String,
+                    action: item['action'] as String,
+                    dataJson: jsonEncode(item['data']),
+                  )).toList(),
+              mode: db.InsertMode.insertOrReplace));
+        }
+      }
+      await p.setBool('${uid}_$_driftMigratedKey', true);
+      debugPrint('✅ تم ترحيل البيانات المحلية إلى Drift لـ$uid');
+    } catch (e) {
+      debugPrint('migrateToDriftIfNeeded error: $e');
+    }
+  }
 
   //
   //  الاشتراك
@@ -390,61 +512,86 @@ class DataService {
   static void disposeSubscriptionListener() => _subListener?.cancel();
 
   // مراقبة الحسابات والقيود في الوقت الفعلي (مزامنة فورية مع نسخة الويب)
-  static StreamSubscription? _accountsLiveSub;
-  static StreamSubscription? _operationsLiveSub;
+  // — مستمعات جزئية (onChildAdded/Changed/Removed) تكتب صفاً واحداً في
+  // Drift عند كل حدث، بدل onValue الذي كان يعيد تحميل العقدة **كاملة**
+  // عند أي تغيير طفل واحد (أكبر تكلفة بيانات على اتصال 2G). نفس نمط
+  // limitToLast+onChildAdded المستخدم فعلاً في sales_sys/smain.dart:585.
+  //
+  // التاريخ الكامل يُزرَع مرة عند تسجيل الدخول عبر SyncService.syncFromCloud
+  // (fetch كامل لمرة واحدة، غير متكرر) — هذه المستمعات مسؤولة فقط عن
+  // التحديثات الحيّة بعد ذلك، لذا نافذة العمليات محدودة بآخر 200 فقط
+  // لضبط أقصى تكلفة أولية على جهاز جديد. الحسابات بلا حد (عددها محدود
+  // أصلاً بحدود الخطة المجانية/المدفوعة).
+  static final List<StreamSubscription> _cloudDataSubs = [];
 
   static void listenToCloudData() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    _accountsLiveSub?.cancel();
-    _operationsLiveSub?.cancel();
+    disposeCloudDataListeners();
+    final uid = user.uid;
 
-    _accountsLiveSub = _accountsRef(user.uid).onValue.listen((event) async {
-      try {
-        final accounts = <Account>[];
-        if (event.snapshot.exists && event.snapshot.value != null) {
-          final map = Map<String, dynamic>.from(event.snapshot.value as Map);
-          for (final e in map.entries) {
-            try {
-              final v = Map<String, dynamic>.from(e.value as Map);
-              if ((v['id'] as String?)?.isEmpty ?? true) v['id'] = e.key;
-              accounts.add(Account.fromJson(v));
-            } catch (_) {}
-          }
-          accounts.sort((a, b) => a.id.compareTo(b.id));
-        }
-        await _saveAccountsLocally(accounts);
-      } catch (e) {
-        debugPrint('listenToCloudData accounts error: $e');
-      }
-    });
+    final accRef = _accountsRef(uid);
+    _cloudDataSubs.add(accRef.onChildAdded.listen((e) => _upsertAccountFromSnapshot(uid, e.snapshot)));
+    _cloudDataSubs.add(accRef.onChildChanged.listen((e) => _upsertAccountFromSnapshot(uid, e.snapshot)));
+    _cloudDataSubs.add(accRef.onChildRemoved.listen((e) => _removeAccountFromSnapshot(uid, e.snapshot)));
 
-    _operationsLiveSub = _opsRef(user.uid).onValue.listen((event) async {
-      try {
-        final ops = <Operation>[];
-        if (event.snapshot.exists && event.snapshot.value != null) {
-          final map = Map<String, dynamic>.from(event.snapshot.value as Map);
-          for (final e in map.entries) {
-            try {
-              final v = Map<String, dynamic>.from(e.value as Map);
-              if ((v['id'] as String?)?.isEmpty ?? true) v['id'] = e.key;
-              ops.add(Operation.fromJson(v));
-            } catch (_) {}
-          }
-        }
-        await _saveOperationsLocally(ops);
-        await _updateBalanceNotifier();
-      } catch (e) {
-        debugPrint('listenToCloudData operations error: $e');
-      }
-    });
+    final opsQuery = _opsRef(uid).limitToLast(200);
+    _cloudDataSubs.add(opsQuery.onChildAdded.listen((e) => _upsertOperationFromSnapshot(uid, e.snapshot)));
+    _cloudDataSubs.add(opsQuery.onChildChanged.listen((e) => _upsertOperationFromSnapshot(uid, e.snapshot)));
+    _cloudDataSubs.add(opsQuery.onChildRemoved.listen((e) => _removeOperationFromSnapshot(uid, e.snapshot)));
+  }
+
+  static Future<void> _upsertAccountFromSnapshot(String uid, DataSnapshot snap) async {
+    try {
+      if (snap.key == null || snap.value == null) return;
+      final v = Map<String, dynamic>.from(snap.value as Map);
+      if ((v['id'] as String?)?.isEmpty ?? true) v['id'] = snap.key;
+      await _db.upsertAccount(_accountToCompanion(uid, Account.fromJson(v)));
+      await _refreshAccountsNotifier();
+    } catch (e) {
+      debugPrint('listenToCloudData account upsert error: $e');
+    }
+  }
+
+  static Future<void> _removeAccountFromSnapshot(String uid, DataSnapshot snap) async {
+    try {
+      if (snap.key == null) return;
+      await _db.deleteAccountRow(uid, snap.key!);
+      await _refreshAccountsNotifier();
+    } catch (e) {
+      debugPrint('listenToCloudData account remove error: $e');
+    }
+  }
+
+  static Future<void> _upsertOperationFromSnapshot(String uid, DataSnapshot snap) async {
+    try {
+      if (snap.key == null || snap.value == null) return;
+      final v = Map<String, dynamic>.from(snap.value as Map);
+      if ((v['id'] as String?)?.isEmpty ?? true) v['id'] = snap.key;
+      await _db.upsertOperation(_operationToCompanion(uid, Operation.fromJson(v)));
+      await _refreshOperationsNotifier();
+      await _updateBalanceNotifier();
+    } catch (e) {
+      debugPrint('listenToCloudData operation upsert error: $e');
+    }
+  }
+
+  static Future<void> _removeOperationFromSnapshot(String uid, DataSnapshot snap) async {
+    try {
+      if (snap.key == null) return;
+      await _db.deleteOperationRow(uid, snap.key!);
+      await _refreshOperationsNotifier();
+      await _updateBalanceNotifier();
+    } catch (e) {
+      debugPrint('listenToCloudData operation remove error: $e');
+    }
   }
 
   static void disposeCloudDataListeners() {
-    _accountsLiveSub?.cancel();
-    _accountsLiveSub = null;
-    _operationsLiveSub?.cancel();
-    _operationsLiveSub = null;
+    for (final s in _cloudDataSubs) {
+      s.cancel();
+    }
+    _cloudDataSubs.clear();
   }
 
   //
@@ -566,24 +713,32 @@ class DataService {
   //  الحسابات
   //
   static Future<List<Account>> getAccounts() async {
-    final p = await _prefs;
-    final raw = p.getString('$_prefix$_accountsKey');
-    if (raw == null) return [];
-    try {
-      final list = jsonDecode(raw) as List;
-      final accounts = list.map((j) => Account.fromJson(j)).toList();
-      accountsNotifier.value = List.from(accounts);
-      return accounts;
-    } catch (e) {
-      return [];
-    }
+    final rows = await _db.getAccounts(_uid);
+    final accounts = rows.map(_accountFromRow).toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
+    accountsNotifier.value = accounts;
+    return accounts;
   }
 
+  /// استبدال كامل للحسابات محلياً — يُستخدم فقط من listenToCloudData
+  /// (يستمع لعقدة Firebase الكاملة حالياً؛ راجع محرك المزامنة الجزئية
+  /// لاحقاً الذي يستبدل هذا بتحديثات صف-بصف).
   static Future<void> _saveAccountsLocally(List<Account> accounts) async {
-    final p = await _prefs;
-    await p.setString('$_prefix$_accountsKey',
-        jsonEncode(accounts.map((a) => a.toJson()).toList()));
+    final uid = _uid;
+    await _db.clearAccounts(uid);
+    if (accounts.isNotEmpty) {
+      await _db.batch((b) => b.insertAll(
+          _db.accountsTable,
+          accounts.map((a) => _accountToCompanion(uid, a)).toList(),
+          mode: db.InsertMode.insertOrReplace));
+    }
     accountsNotifier.value = List.from(accounts);
+  }
+
+  static Future<void> _refreshAccountsNotifier() async {
+    final rows = await _db.getAccounts(_uid);
+    accountsNotifier.value = rows.map(_accountFromRow).toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
   }
 
   static Future<String> _nextAccountId() async {
@@ -648,9 +803,8 @@ class DataService {
         clientPhone: clientPhone,
         clientEmail: clientEmail,
         clientUid: clientUid);
-    final accounts = await getAccounts();
-    accounts.add(account);
-    await _saveAccountsLocally(accounts);
+    await _db.upsertAccount(_accountToCompanion(_uid, account));
+    await _refreshAccountsNotifier();
     await _addPending('account', 'create', id, account.toJson());
     unawaited(_pushPendingToFirebase());
     unawaited(NotificationService.notifyNewAccount(name));
@@ -686,45 +840,133 @@ class DataService {
         clientPhone: clientPhone,
         clientEmail: clientEmail,
         clientUid: clientUid);
-    accounts[idx] = updated;
-    await _saveAccountsLocally(accounts);
+    final wasAllowed = accounts[idx].allowClientLogin;
+    await _db.upsertAccount(_accountToCompanion(_uid, updated));
+    await _refreshAccountsNotifier();
     await _addPending('account', 'create', accountId, updated.toJson());
     unawaited(_pushPendingToFirebase());
+    // إذا تغيّرت حالة السماح بدخول العميل، زامن/امسح clientOps بالكامل لهذا الحساب
+    if (wasAllowed != allowClientLogin) {
+      unawaited(_syncClientOpsForAccount(accountId, enable: allowClientLogin));
+      if (!allowClientLogin && clientUid.isNotEmpty) {
+        unawaited(FirebaseDatabase.instance
+            .ref('clientAccountMap/$clientUid')
+            .remove());
+      }
+    }
   }
 
   static Future<void> deleteAccount(String accountId) async {
+    final uid = _uid;
     final accounts = await getAccounts();
-    accounts.removeWhere((a) => a.id == accountId);
-    await _saveAccountsLocally(accounts);
-    final ops = await getOperations();
-    await _saveOperationsLocally(
-        ops.where((o) => o.accountId != accountId).toList());
+    final deleted = accounts.where((a) => a.id == accountId).firstOrNull;
+    await _db.deleteAccountRow(uid, accountId);
+    await _db.deleteOperationsForAccount(uid, accountId);
+    await _refreshAccountsNotifier();
+    await _refreshOperationsNotifier();
+    await _updateBalanceNotifier();
     await _addPending('account', 'delete', accountId, {'id': accountId});
     unawaited(_pushPendingToFirebase());
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      unawaited(_userRef(user.uid).child('clientOps/$accountId').remove());
+    }
+    if (deleted != null && deleted.clientUid.isNotEmpty) {
+      unawaited(FirebaseDatabase.instance
+          .ref('clientAccountMap/${deleted.clientUid}')
+          .remove());
+    }
   }
 
   //
   //  القيود / العمليات
   //
   static Future<List<Operation>> getOperations() async {
-    final p = await _prefs;
-    final raw = p.getString('$_prefix$_opsKey');
-    if (raw == null) return [];
+    final rows = await _db.getOperations(_uid);
+    final ops = rows.map(_operationFromRow).toList();
+    operationsNotifier.value = ops;
+    return ops;
+  }
+
+  /// استبدال كامل للعمليات محلياً — يُستخدم فقط من listenToCloudData
+  /// (نفس ملاحظة _saveAccountsLocally أعلاه).
+  static Future<void> _saveOperationsLocally(List<Operation> ops) async {
+    final uid = _uid;
+    await _db.clearOperations(uid);
+    if (ops.isNotEmpty) {
+      await _db.batch((b) => b.insertAll(
+          _db.operationsTable,
+          ops.map((o) => _operationToCompanion(uid, o)).toList(),
+          mode: db.InsertMode.insertOrReplace));
+    }
+    operationsNotifier.value = List.from(ops);
+  }
+
+  static Future<void> _refreshOperationsNotifier() async {
+    final rows = await _db.getOperations(_uid);
+    operationsNotifier.value = rows.map(_operationFromRow).toList();
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  مرآة clientOps — نسخة مُفرَّغة من عمليات الحسابات المرتبطة
+  //  ببوابة عميل، حتى لا تُضطر بوابة العميل لتحميل كل عمليات
+  //  الشركة (راجع قواعد Firebase: users/{uid}/clientOps/{accountId})
+  // ══════════════════════════════════════════════════════
+  static Future<void> _mirrorOperationToClientOps(Operation op,
+      {bool remove = false}) async {
+    final account = accountsNotifier.value
+        .where((a) => a.id == op.accountId)
+        .firstOrNull;
+    if (account == null || !account.allowClientLogin) return;
+    final path = '${op.accountId}/${op.id}';
+    if (remove) {
+      await _addPending('clientOp', 'delete', path, {'id': op.id});
+    } else {
+      await _addPending('clientOp', 'create', path, op.toJson());
+    }
+    unawaited(_pushPendingToFirebase());
+  }
+
+  /// عند تفعيل/تعطيل السماح بدخول العميل لحساب: مزامنة أو مسح clientOps بالكامل لذلك الحساب
+  static Future<void> _syncClientOpsForAccount(String accountId,
+      {required bool enable}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final ref = _userRef(user.uid).child('clientOps').child(accountId);
     try {
-      final list = jsonDecode(raw) as List;
-      final ops = list.map((j) => Operation.fromJson(j)).toList();
-      operationsNotifier.value = List.from(ops);
-      return ops;
+      if (!enable) {
+        await ref.remove();
+        return;
+      }
+      final ops =
+          (await getOperations()).where((o) => o.accountId == accountId);
+      for (final op in ops) {
+        await ref.child(op.id).set(op.toJson());
+      }
     } catch (e) {
-      return [];
+      debugPrint('_syncClientOpsForAccount error: $e');
     }
   }
 
-  static Future<void> _saveOperationsLocally(List<Operation> ops) async {
-    final p = await _prefs;
-    await p.setString(
-        '$_prefix$_opsKey', jsonEncode(ops.map((o) => o.toJson()).toList()));
-    operationsNotifier.value = List.from(ops);
+  /// تعبئة لمرة واحدة عند تسجيل الدخول: يضمن أن clientOps محدَّثة
+  /// للحسابات القديمة ذات allowClientLogin=true (تُعالج الحالات التي
+  /// أُنشئت فيها العمليات قبل إضافة هذه الآلية).
+  static Future<void> backfillClientOpsIfNeeded() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final metaRef = _userRef(user.uid).child('meta/clientOpsBackfilled');
+    try {
+      final done = await metaRef.get();
+      if (done.exists && done.value == true) return;
+      final accounts =
+          (await getAccounts()).where((a) => a.allowClientLogin);
+      for (final acc in accounts) {
+        await _syncClientOpsForAccount(acc.id, enable: true);
+      }
+      await metaRef.set(true);
+    } catch (e) {
+      debugPrint('backfillClientOpsIfNeeded error: $e');
+    }
   }
 
   static Future<Operation> addOperation({
@@ -748,12 +990,12 @@ class DataService {
         amountUSD: amountUSD,
         statement: statement,
         date: date ?? DateTime.now());
-    final ops = await getOperations();
-    ops.add(op);
-    await _saveOperationsLocally(ops);
+    await _db.upsertOperation(_operationToCompanion(_uid, op));
+    await _refreshOperationsNotifier();
     await _updateBalanceNotifier();
     await _addPending('operation', 'create', id, op.toJson());
     unawaited(_pushPendingToFirebase());
+    unawaited(_mirrorOperationToClientOps(op));
     // إشعار حركة كبيرة (> 500 USD)
     if (amountUSD.abs() > 500) {
       unawaited(NotificationService.notifyLargeTransaction(
@@ -785,29 +1027,35 @@ class DataService {
         amountUSD: amountUSD,
         statement: statement,
         date: date ?? ops[idx].date);
-    ops[idx] = updated;
-    await _saveOperationsLocally(ops);
+    await _db.upsertOperation(_operationToCompanion(_uid, updated));
+    await _refreshOperationsNotifier();
     await _updateBalanceNotifier();
     await _addPending('operation', 'create', opId, updated.toJson());
     unawaited(_pushPendingToFirebase());
+    unawaited(_mirrorOperationToClientOps(updated));
   }
 
   static Future<void> deleteOperation(String opId) async {
+    final uid = _uid;
     final ops = await getOperations();
-    ops.removeWhere((o) => o.id == opId);
-    await _saveOperationsLocally(ops);
+    final deleted = ops.where((o) => o.id == opId).firstOrNull;
+    await _db.deleteOperationRow(uid, opId);
+    await _refreshOperationsNotifier();
     await _updateBalanceNotifier();
     await _addPending('operation', 'delete', opId, {'id': opId});
     unawaited(_pushPendingToFirebase());
+    if (deleted != null) {
+      unawaited(_mirrorOperationToClientOps(deleted, remove: true));
+    }
   }
 
   static Future<AccountSummary> getAccountSummary(String accountId) async {
-    final ops = (await getOperations()).where((o) => o.accountId == accountId);
+    final rows = await _db.getOperationsForAccount(_uid, accountId);
     double totalUSD = 0.0;
     final Map<String, double> byCurrency = {};
-    for (final op in ops) {
-      totalUSD += op.amountUSD;
-      byCurrency[op.currency] = (byCurrency[op.currency] ?? 0.0) + op.amount;
+    for (final r in rows) {
+      totalUSD += r.amountUSD;
+      byCurrency[r.currency] = (byCurrency[r.currency] ?? 0.0) + r.amount;
     }
     return AccountSummary(
         totalUSD: double.parse(totalUSD.toStringAsFixed(6)),
@@ -815,11 +1063,7 @@ class DataService {
   }
 
   static Future<double> getTotalBalanceUSD() async {
-    final ops = await getOperations();
-    double total = 0;
-    for (final op in ops) {
-      total += op.amountUSD;
-    }
+    final total = await _db.getTotalBalanceUSD(_uid);
     return double.parse(total.toStringAsFixed(6));
   }
 
@@ -830,73 +1074,51 @@ class DataService {
   //
   //  Pending Sync
   //
-  static Future<List<Map<String, dynamic>>> _getPending() async {
-    final p = await _prefs;
-    final raw = p.getString('$_prefix$_pendingKey');
-    if (raw == null) return [];
-    try {
-      return List<Map<String, dynamic>>.from(jsonDecode(raw));
-    } catch (_) {
-      return [];
-    }
-  }
-
-  static Future<void> _savePending(List<Map<String, dynamic>> pending) async {
-    final p = await _prefs;
-    await p.setString('$_prefix$_pendingKey', jsonEncode(pending));
-  }
-
   static Future<void> _addPending(String entity, String action, String id,
       Map<String, dynamic> data) async {
-    final pending = await _getPending();
-    pending.removeWhere((p) => p['id'] == id && p['entity'] == entity);
-    pending.add({
-      'entity': entity,
-      'action': action,
-      'id': id,
-      'data': data,
-      'ts': DateTime.now().toIso8601String()
-    });
-    await _savePending(pending);
+    await _db.addPending(db.PendingSyncItemsCompanion.insert(
+      ownerUid: _uid,
+      entity: entity,
+      entityId: id,
+      action: action,
+      dataJson: jsonEncode(data),
+    ));
   }
 
   static Future<void> _pushPendingToFirebase() async {
-    if (!await _isOnline()) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final pending = await _getPending();
+    // نتحقق من وجود عمليات معلّقة أولاً (استعلام محلي رخيص) قبل فحص
+    // الاتصال (يتطلب طلب شبكة) — يمنع فحص DNS دوري غير ضروري حين لا
+    // يوجد أي عمل معلّق أصلاً.
+    final pending = await _db.getPending(user.uid);
     if (pending.isEmpty) return;
-    final succeeded = <String>[];
+    if (!await _isOnline()) return;
     for (final item in pending) {
       try {
-        final entity = item['entity'] as String;
-        final action = item['action'] as String;
-        final id = item['id'] as String;
-        final data = item['data'] as Map<String, dynamic>;
-        final ref = entity == 'account'
-            ? _accountsRef(user.uid).child(id)
-            : _opsRef(user.uid).child(id);
-        if (action == 'create') {
+        final data = jsonDecode(item.dataJson) as Map<String, dynamic>;
+        final ref = switch (item.entity) {
+          'account'  => _accountsRef(user.uid).child(item.entityId),
+          'clientOp' => _userRef(user.uid).child('clientOps').child(item.entityId),
+          _          => _opsRef(user.uid).child(item.entityId),
+        };
+        if (item.action == 'create') {
           await ref.set(data);
-        } else if (action == 'delete') { await ref.remove(); }
-        succeeded.add('${entity}_$id');
+        } else if (item.action == 'delete') { await ref.remove(); }
+        await _db.removePending(user.uid, item.entity, item.entityId);
       } catch (e) {
-        debugPrint(' فشل مزامنة: ${item['id']} — $e');
+        debugPrint(' فشل مزامنة: ${item.entityId} — $e');
       }
-    }
-    if (succeeded.isNotEmpty) {
-      final remaining = pending
-          .where((p) => !succeeded.contains('${p['entity']}_${p['id']}'))
-          .toList();
-      await _savePending(remaining);
     }
   }
 
   static Future<bool> _isOnline() async {
     try {
       if (kIsWeb) return true;
+      // مهلة موسّعة (كانت 3 ثوانٍ) لتتحمل زمن استجابة شبكات 2G البطيئة
+      // بدل اعتبار الجهاز غير متصل خطأً بسبب استجابة بطيئة فقط.
       final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 8));
       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
     } catch (_) {
       return false;
@@ -906,33 +1128,28 @@ class DataService {
   static Future<void> syncNow() => _pushPendingToFirebase();
   static Future<bool> checkOnline() => _isOnline();
 
-  // مراقبة الاتصال
+  // ── مراقبة الاتصال + محاولات إعادة تصاعدية (exponential backoff) ──
+  // بدل تأخير ثابت 800ms وتجاهل صامت للفشل، نعيد المحاولة تصاعدياً
+  // (800ms ← 1.6s ← 3.2s ← ... سقف 15s) حتى تنجح المزامنة أو يتغيّر
+  // اتصال الشبكة مجدداً — أنسب لشبكة 2G متقطعة.
   static StreamSubscription? _connectivitySub;
+  static Timer? _syncRetryTimer;
+  static int _syncRetryCount = 0;
+
   static void startConnectivityMonitor() {
     if (kIsWeb) {
       isOnlineNotifier.value = true;
       return;
     }
     _connectivitySub?.cancel();
-    _connectivitySub =
-        Connectivity().onConnectivityChanged.listen((result) async {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((result) {
       final online = !(result.contains(ConnectivityResult.none) || result.isEmpty);
       isOnlineNotifier.value = online;
+      _syncRetryTimer?.cancel();
       if (online) {
-        await Future.delayed(const Duration(milliseconds: 800));
-        await _pushPendingToFirebase();
-        // مزامنة من السحابة عند استعادة الاتصال
-        try {
-          final user = FirebaseAuth.instance.currentUser;
-          if (user != null) {
-            await SyncService()
-                .syncFromCloud()
-                .timeout(const Duration(seconds: 10), onTimeout: () {});
-            await getAccounts();
-            await getOperations();
-            balanceNotifier.value = await getTotalBalanceUSD();
-          }
-        } catch (_) {}
+        _syncRetryCount = 0;
+        _syncRetryTimer =
+            Timer(const Duration(milliseconds: 800), _syncWithBackoff);
       }
     });
     Connectivity().checkConnectivity().then((r) {
@@ -940,11 +1157,53 @@ class DataService {
     });
   }
 
-  static void stopConnectivityMonitor() => _connectivitySub?.cancel();
+  static Future<void> _syncWithBackoff() async {
+    try {
+      await _pushPendingToFirebase();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // بلا onTimeout فارغ — انتهاء المهلة يُعامَل كفشل حقيقي يُعاد جدولته أدناه
+        await SyncService().syncFromCloud().timeout(const Duration(seconds: 20));
+        await getAccounts();
+        await getOperations();
+        balanceNotifier.value = await getTotalBalanceUSD();
+      }
+      _syncRetryCount = 0;
+    } catch (e) {
+      debugPrint('sync backoff attempt $_syncRetryCount failed: $e');
+      if (_syncRetryCount >= 6) return; // توقف مؤقتاً؛ سيُعاد التشغيل عند تغيّر حالة الاتصال
+      final delayMs = (800 * (1 << _syncRetryCount)).clamp(800, 15000);
+      _syncRetryCount++;
+      _syncRetryTimer?.cancel();
+      _syncRetryTimer = Timer(Duration(milliseconds: delayMs), _syncWithBackoff);
+    }
+  }
 
-  static Future<int> pendingCount() async => (await _getPending()).length;
+  static void stopConnectivityMonitor() {
+    _connectivitySub?.cancel();
+    _syncRetryTimer?.cancel();
+  }
+
+  static Future<int> pendingCount() async => _db.pendingCount(_uid);
+
+  /// يستبدل الحسابات/العمليات محلياً بالكامل — يُستخدم من SyncService
+  /// بعد دمج بيانات السحابة مع المحلي (cloud wins عند التعارض).
+  static Future<void> replaceAllAccountsAndOperations(
+      List<Account> accounts, List<Operation> ops) async {
+    await _saveAccountsLocally(accounts);
+    await _saveOperationsLocally(ops);
+    await _updateBalanceNotifier();
+  }
 
   static Future<void> clearAll() async {
+    final uid = _uid;
+    await _db.clearAccounts(uid);
+    await _db.clearOperations(uid);
+    final pending = await _db.getPending(uid);
+    for (final item in pending) {
+      await _db.removePending(uid, item.entity, item.entityId);
+    }
+    // إزالة أي بقايا من الصيغة القديمة (SharedPreferences JSON) إن وُجدت
     final p = await _prefs;
     await p.remove('$_prefix$_accountsKey');
     await p.remove('$_prefix$_opsKey');
@@ -979,6 +1238,15 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Cairo',
         visualDensity: VisualDensity.compact,
       ),
+      locale: const Locale('ar'),
+      supportedLocales: const [Locale('ar')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      builder: (context, child) =>
+          Directionality(textDirection: ui.TextDirection.rtl, child: child!),
       home: const SplashScreen(),
     );
   }
@@ -1688,8 +1956,11 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _init();
+    // شبكة أمان منخفضة التردد فقط — المُشغِّل الأساسي للدفع الآن هو
+    // مستمع تغيّر الاتصال (startConnectivityMonitor)، و_pushPendingToFirebase
+    // نفسها تتحقق من عدم وجود عمليات معلّقة قبل أي فحص شبكة.
     _syncTimer = Timer.periodic(
-        const Duration(minutes: 1), (_) => DataService.syncNow());
+        const Duration(minutes: 5), (_) => DataService.syncNow());
     DataService.startConnectivityMonitor();
     // فحص الاشتراك كل 30 دقيقة
     _subCheckTimer = Timer.periodic(const Duration(minutes: 30), (_) async {
@@ -1701,6 +1972,8 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _init() async {
     //  1. تحميل البيانات المحلية فوراً (لا يحتاج إنترنت)
     _setStatus('جاري تحميل البيانات...');
+    // ترحيل لمرة واحدة من التخزين القديم (SharedPreferences JSON) إلى Drift
+    await DataService.migrateToDriftIfNeeded();
     await DataService.getAccounts();
     await DataService.getOperations();
     await DataService.getCompanyInfo();
@@ -1742,6 +2015,7 @@ class _MainScreenState extends State<MainScreen> {
       DataService.listenToSubscription();
       // مزامنة فورية Live مع نسخة الويب: أي تعديل هناك يظهر هنا مباشرة
       DataService.listenToCloudData();
+      unawaited(DataService.backfillClientOpsIfNeeded());
       if (mounted) { Future.delayed(const Duration(seconds: 1), _checkSubscriptionWarnings); }
     } catch (e) {
       debugPrint('syncBackground: \$e');
@@ -2524,19 +2798,14 @@ class _HomeContentState extends State<_HomeContent> {
                 centerTitle: true,
                 title:
                     Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  ValueListenableBuilder<AppConfig?>(
-                    valueListenable: appConfigNotifier,
-                    builder: (_, cfg, __) => Text(
-                      cfg != null
-                          ? '${cfg.homeLayout.welcomeHint}'
-                          : 'مرحباً، $companyName',
-                      style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
+                  Text(
+                    '${_greeting()}، $companyName',
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 6),
                   TweenAnimationBuilder<double>(
@@ -2647,6 +2916,9 @@ class _HomeContentState extends State<_HomeContent> {
     );
   }
 
+  String _greeting() =>
+      DateTime.now().hour < 12 ? 'صباح الخير' : 'مساء الخير';
+
   void _handleQuickAction(BuildContext context, String route) {
     switch (route) {
       case 'income':
@@ -2660,12 +2932,7 @@ class _HomeContentState extends State<_HomeContent> {
       case 'collect':
         _showAddOperationSheet(context);
       case 'entry':
-        final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => JournalScreen(
-              ownerUid: uid,
-              existingAccounts: accountsNotifier.value,
-            )));
+        _showAddOperationSheet(context);
       case 'reports':
         final ruid = FirebaseAuth.instance.currentUser?.uid ?? '';
         Navigator.push(context,
@@ -3096,22 +3363,6 @@ class _AccountsContentState extends State<_AccountsContent> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             actions: [
-              // ── قيود اليومية ──
-              IconButton(
-                icon: const Icon(Icons.book_outlined, color: Colors.white),
-                tooltip: 'قيود اليومية',
-                onPressed: () {
-                  final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                  Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => JournalScreen(
-                      ownerUid: uid,
-                      existingAccounts: accountsNotifier.value,
-                      onEntrySaved: () async {
-                        await DataService.getOperations();
-                      },
-                    )));
-                },
-              ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline,
                     color: Colors.white, size: 32),
@@ -3951,12 +4202,16 @@ class _EditOperationSheetState extends State<_EditOperationSheet> {
   }
 
   Future<void> _pickDate() async {
+    // useRootNavigator صراحةً: هذا الشيت مفتوح عبر showModalBottomSheet،
+    // وبدونه قد لا يظهر منتقي التاريخ فوق الشيت (مشكلة تنقّل معروفة
+    // في فلاتر عند استدعاء showDatePicker من داخل showModalBottomSheet).
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       locale: const Locale('ar'),
+      useRootNavigator: true,
     );
     if (picked != null && mounted) {
       setState(() => _selectedDate = DateTime(
@@ -5073,6 +5328,9 @@ class _AddOperationSheetState extends State<_AddOperationSheet> {
             style: const TextStyle(fontSize: 13)),
         const SizedBox(height: 8),
         // ── حقل التاريخ ──
+        // useRootNavigator صراحةً: هذا الشيت مفتوح عبر showModalBottomSheet،
+        // وبدونه قد لا يظهر منتقي التاريخ فوق الشيت (مشكلة تنقّل معروفة
+        // في فلاتر عند استدعاء showDatePicker من داخل showModalBottomSheet).
         GestureDetector(
           onTap: () async {
             final picked = await showDatePicker(
@@ -5081,6 +5339,7 @@ class _AddOperationSheetState extends State<_AddOperationSheet> {
               firstDate: DateTime(2000),
               lastDate: DateTime(2100),
               locale: const Locale('ar'),
+              useRootNavigator: true,
             );
             if (picked != null) {
               setState(() => row.date = DateTime(

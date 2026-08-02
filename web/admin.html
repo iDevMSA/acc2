@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة تحكم المشرف - منصتي المحاسبية</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: #f0f4f8; color: #1a202c; direction: rtl; }
+  
+  /* ── Header ── */
+  .header { background: linear-gradient(135deg,#021B79,#0575E6); color:#fff; padding:20px 32px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 4px 20px rgba(0,0,0,.2); }
+  .header h1 { font-size:22px; font-weight:700; }
+  .header small { font-size:12px; opacity:.7; display:block; margin-top:2px; }
+  #loginStatus { font-size:13px; background:rgba(255,255,255,.15); padding:6px 14px; border-radius:20px; }
+
+  /* ── Login ── */
+  .login-wrap { display:flex; align-items:center; justify-content:center; min-height:80vh; }
+  .login-card { background:#fff; border-radius:20px; padding:40px; width:380px; box-shadow:0 10px 40px rgba(0,0,0,.12); }
+  .login-card h2 { text-align:center; color:#021B79; margin-bottom:24px; font-size:20px; }
+
+  /* ── Layout ── */
+  .container { max-width:1300px; margin:0 auto; padding:24px 16px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+  @media(max-width:900px){ .grid2{grid-template-columns:1fr;} .grid3{grid-template-columns:1fr 1fr;} }
+  @media(max-width:600px){ .grid3{grid-template-columns:1fr;} }
+
+  /* ── Cards ── */
+  .card { background:#fff; border-radius:16px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,.06); }
+  .card h3 { font-size:15px; color:#021B79; margin-bottom:16px; display:flex; align-items:center; gap:8px; border-bottom:2px solid #f0f4f8; padding-bottom:10px; }
+  .stat-card { background:#fff; border-radius:16px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,.06); text-align:center; }
+  .stat-card .num { font-size:32px; font-weight:800; color:#021B79; }
+  .stat-card .lbl { font-size:12px; color:#718096; margin-top:4px; }
+  .stat-card .ico { font-size:28px; margin-bottom:8px; }
+
+  /* ── Table ── */
+  .tbl-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:#f7fafc; color:#4a5568; font-weight:600; padding:10px 12px; text-align:right; border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+  td { padding:10px 12px; border-bottom:1px solid #f0f4f8; vertical-align:middle; }
+  tr:hover { background:#f7fafc; }
+
+  /* ── Badges ── */
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+  .badge-free { background:#e2e8f0; color:#4a5568; }
+  .badge-monthly { background:#dbeafe; color:#1d4ed8; }
+  .badge-yearly { background:#d1fae5; color:#065f46; }
+  .badge-lifetime { background:#fef3c7; color:#92400e; }
+  .badge-expired { background:#fee2e2; color:#991b1b; }
+  .badge-active { background:#d1fae5; color:#065f46; }
+
+  /* ── Buttons ── */
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border:none; border-radius:10px; cursor:pointer; font-size:13px; font-weight:600; transition:all .2s; text-decoration:none; }
+  .btn-primary { background:#021B79; color:#fff; }
+  .btn-primary:hover { background:#0575E6; }
+  .btn-success { background:#059669; color:#fff; }
+  .btn-success:hover { background:#047857; }
+  .btn-danger { background:#dc2626; color:#fff; }
+  .btn-danger:hover { background:#b91c1c; }
+  .btn-warning { background:#d97706; color:#fff; }
+  .btn-warning:hover { background:#b45309; }
+  .btn-sm { padding:5px 10px; font-size:11px; }
+  .btn-outline { background:transparent; border:2px solid #021B79; color:#021B79; }
+  .btn-outline:hover { background:#021B79; color:#fff; }
+
+  /* ── Forms ── */
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .form-group { margin-bottom:14px; }
+  .form-group label { display:block; font-size:12px; font-weight:600; color:#4a5568; margin-bottom:6px; }
+  .form-group input, .form-group select { width:100%; padding:10px 12px; border:2px solid #e2e8f0; border-radius:10px; font-size:13px; outline:none; transition:border .2s; font-family:inherit; }
+  .form-group input:focus, .form-group select:focus { border-color:#0575E6; }
+  .form-group small { color:#718096; font-size:11px; margin-top:4px; display:block; }
+
+  /* ── Modal ── */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:#fff; border-radius:20px; padding:28px; width:500px; max-width:95vw; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .modal h3 { font-size:18px; color:#021B79; margin-bottom:20px; }
+
+  /* ── Search ── */
+  .search-bar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .search-bar input { flex:1; min-width:200px; padding:10px 14px; border:2px solid #e2e8f0; border-radius:10px; font-size:13px; outline:none; }
+  .search-bar input:focus { border-color:#0575E6; }
+  .filter-select { padding:10px 14px; border:2px solid #e2e8f0; border-radius:10px; font-size:13px; outline:none; }
+
+  /* ── Toast ── */
+  #toast { position:fixed; bottom:24px; right:24px; background:#1a202c; color:#fff; padding:12px 20px; border-radius:12px; font-size:13px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; max-width:320px; }
+  #toast.show { opacity:1; }
+  #toast.success { background:#059669; }
+  #toast.error { background:#dc2626; }
+
+  /* ── Plan cards in modal ── */
+  .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .plan-opt { border:2px solid #e2e8f0; border-radius:12px; padding:12px; cursor:pointer; transition:all .2s; text-align:center; }
+  .plan-opt:hover, .plan-opt.selected { border-color:#0575E6; background:#eff6ff; }
+  .plan-opt .plan-name { font-weight:700; font-size:13px; color:#021B79; }
+  .plan-opt .plan-price { font-size:18px; font-weight:800; color:#0575E6; margin:4px 0; }
+  .plan-opt .plan-dur { font-size:10px; color:#718096; }
+
+  /* ── Empty state ── */
+  .empty { text-align:center; padding:40px; color:#a0aec0; }
+  .empty .ico { font-size:48px; margin-bottom:12px; }
+
+  /* ── Tabs ── */
+  .tabs { display:flex; gap:4px; background:#f0f4f8; padding:4px; border-radius:12px; margin-bottom:20px; width:fit-content; }
+  .tab { padding:8px 18px; border-radius:10px; cursor:pointer; font-size:13px; font-weight:600; color:#718096; transition:all .2s; border:none; background:none; }
+  .tab.active { background:#fff; color:#021B79; box-shadow:0 2px 8px rgba(0,0,0,.1); }
+
+  .section { display:none; }
+  .section.active { display:block; }
+
+  .expiry-warning { color:#d97706; font-size:11px; }
+  .expiry-expired { color:#dc2626; font-size:11px; }
+  .expiry-ok { color:#059669; font-size:11px; }
+
+  .loading { text-align:center; padding:30px; color:#718096; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <h1>🛡️ لوحة تحكم المشرف</h1>
+    <small>منصتي المحاسبية — إدارة المستخدمين والاشتراكات</small>
+  </div>
+  <div id="loginStatus">غير مسجّل</div>
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <h2>🔐 دخول المشرف</h2>
+    <div class="form-group">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="adminEmail" placeholder="admin@example.com">
+    </div>
+    <div class="form-group">
+      <label>كلمة المرور</label>
+      <input type="password" id="adminPass" placeholder="••••••••">
+    </div>
+    <div id="loginErr" style="color:#dc2626;font-size:12px;margin-bottom:10px;display:none;"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="adminLogin()">دخول</button>
+    <p style="text-align:center;margin-top:14px;font-size:12px;color:#718096;">
+      ⚠️ هذه الصفحة للمشرف فقط
+    </p>
+  </div>
+</div>
+
+<!-- Main Dashboard -->
+<div id="dashboard" style="display:none;">
+  <div class="container">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('users')">👥 المستخدمون</button>
+      <button class="tab" onclick="showTab('stats')">📊 الإحصائيات</button>
+      <button class="tab" onclick="showTab('plans')">💎 الخطط</button>
+      <button class="tab" onclick="showTab('expiring')">⏰ تنتهي قريباً</button>
+    </div>
+
+    <!-- ══ USERS TAB ══ -->
+    <div id="tab-users" class="section active">
+      <div class="card">
+        <h3>👥 جميع المستخدمين</h3>
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="🔍 بحث بالاسم أو البريد..." oninput="filterUsers()">
+          <select class="filter-select" id="planFilter" onchange="filterUsers()">
+            <option value="">كل الخطط</option>
+            <option value="free">مجاني</option>
+            <option value="monthly">شهري</option>
+            <option value="yearly">سنوي</option>
+            <option value="lifetime">مدى الحياة</option>
+          </select>
+          <select class="filter-select" id="statusFilter" onchange="filterUsers()">
+            <option value="">كل الحالات</option>
+            <option value="active">نشط</option>
+            <option value="expired">منتهي</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="loadUsers()">🔄 تحديث</button>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>البريد الإلكتروني</th>
+                <th>الشركة</th>
+                <th>الخطة</th>
+                <th>الحالة</th>
+                <th>تاريخ الانتهاء</th>
+                <th>الحسابات</th>
+                <th>القيود</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="usersTable">
+              <tr><td colspan="9" class="loading">⏳ جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATS TAB ══ -->
+    <div id="tab-stats" class="section">
+      <div class="grid3" id="statsGrid">
+        <div class="stat-card"><div class="ico">👥</div><div class="num" id="s-total">-</div><div class="lbl">إجمالي المستخدمين</div></div>
+        <div class="stat-card"><div class="ico">🆓</div><div class="num" id="s-free">-</div><div class="lbl">خطة مجانية</div></div>
+        <div class="stat-card"><div class="ico">📅</div><div class="num" id="s-monthly">-</div><div class="lbl">خطة شهرية</div></div>
+        <div class="stat-card"><div class="ico">📆</div><div class="num" id="s-yearly">-</div><div class="lbl">خطة سنوية</div></div>
+        <div class="stat-card"><div class="ico">♾️</div><div class="num" id="s-lifetime">-</div><div class="lbl">مدى الحياة</div></div>
+        <div class="stat-card"><div class="ico">❌</div><div class="num" id="s-expired">-</div><div class="lbl">اشتراكات منتهية</div></div>
+        <div class="stat-card"><div class="ico">💰</div><div class="num" id="s-revenue">-</div><div class="lbl">إجمالي الإيرادات (تقديري)</div></div>
+        <div class="stat-card"><div class="ico">⏰</div><div class="num" id="s-expiring7">-</div><div class="lbl">تنتهي خلال 7 أيام</div></div>
+        <div class="stat-card"><div class="ico">📊</div><div class="num" id="s-active">-</div><div class="lbl">اشتراكات مدفوعة نشطة</div></div>
+      </div>
+    </div>
+
+    <!-- ══ PLANS TAB ══ -->
+    <div id="tab-plans" class="section">
+      <div class="card">
+        <h3>💎 تفاصيل الخطط</h3>
+        <table>
+          <thead>
+            <tr><th>الخطة</th><th>السعر</th><th>المدة</th><th>الحسابات</th><th>القيود</th><th>المميزات</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-free">مجاني</span></td>
+              <td>$0.00</td>
+              <td>غير محدودة</td>
+              <td>15 حساب</td>
+              <td>100 قيد</td>
+              <td>ميزات محدودة</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-monthly">شهري</span></td>
+              <td>$49.99 / شهر</td>
+              <td>30 يوم</td>
+              <td>غير محدود</td>
+              <td>غير محدود</td>
+              <td>جميع الميزات + PDF + واتساب</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-yearly">سنوي</span></td>
+              <td>$449.99 / سنة</td>
+              <td>365 يوم</td>
+              <td>غير محدود</td>
+              <td>غير محدود</td>
+              <td>جميع الميزات + أولوية الدعم</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-lifetime">مدى الحياة</span></td>
+              <td>$999.99 مرة واحدة</td>
+              <td>دائم</td>
+              <td>غير محدود</td>
+              <td>غير محدود</td>
+              <td>جميع الميزات + تحديثات مستقبلية</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ EXPIRING TAB ══ -->
+    <div id="tab-expiring" class="section">
+      <div class="card">
+        <h3>⏰ اشتراكات تنتهي قريباً (خلال 14 يوم)</h3>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>البريد</th><th>الشركة</th><th>الخطة</th><th>تاريخ الانتهاء</th><th>الأيام المتبقية</th><th>إجراء</th></tr>
+            </thead>
+            <tbody id="expiringTable">
+              <tr><td colspan="6" class="loading">⏳ جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /dashboard -->
+
+<!-- ══ Modal: تعديل اشتراك ══ -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ تعديل اشتراك المستخدم</h3>
+    <input type="hidden" id="editUid">
+
+    <div class="form-group">
+      <label>البريد الإلكتروني</label>
+      <input type="text" id="editEmail" readonly style="background:#f7fafc;">
+    </div>
+
+    <div class="form-group">
+      <label>اختر الخطة</label>
+      <div class="plan-grid">
+        <div class="plan-opt" onclick="selectPlan('free')" id="plan-free">
+          <div class="plan-name">🆓 مجاني</div>
+          <div class="plan-price">$0</div>
+          <div class="plan-dur">بلا انتهاء</div>
+        </div>
+        <div class="plan-opt" onclick="selectPlan('monthly')" id="plan-monthly">
+          <div class="plan-name">📅 شهري</div>
+          <div class="plan-price">$49.99</div>
+          <div class="plan-dur">30 يوم</div>
+        </div>
+        <div class="plan-opt" onclick="selectPlan('yearly')" id="plan-yearly">
+          <div class="plan-name">📆 سنوي</div>
+          <div class="plan-price">$449.99</div>
+          <div class="plan-dur">365 يوم</div>
+        </div>
+        <div class="plan-opt" onclick="selectPlan('lifetime')" id="plan-lifetime">
+          <div class="plan-name">♾️ مدى الحياة</div>
+          <div class="plan-price">$999.99</div>
+          <div class="plan-dur">دائم</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="customDateRow" class="form-group" style="display:none;">
+      <label>تاريخ انتهاء مخصص (اختياري — اتركه فارغاً للحساب التلقائي)</label>
+      <input type="date" id="customExpiry">
+      <small>إذا تركته فارغاً، يُحسب من اليوم تلقائياً</small>
+    </div>
+
+    <div class="form-group">
+      <label>ملاحظة (اختياري)</label>
+      <input type="text" id="editNote" placeholder="مثال: دفع عبر واتساب">
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn btn-outline" onclick="closeModal('editModal')">إلغاء</button>
+      <button class="btn btn-success" onclick="saveSubscription()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal: تفاصيل مستخدم ══ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <h3 id="detailTitle">تفاصيل المستخدم</h3>
+    <div id="detailContent"></div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('detailModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getDatabase, ref, get, set, update, onValue }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ══════════════════════════════════════════
+// 🔧 إعداد فايربيز — ضع بياناتك هنا
+// ══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyADqEEGiORR7tX791K4Kee0M06PLZGeGD4",
+  authDomain: "alaraby-4ccdd.firebaseapp.com",
+  databaseURL: "https://alaraby-4ccdd-default-rtdb.firebaseio.com",
+  projectId: "alaraby-4ccdd",
+  storageBucket: "alaraby-4ccdd.firebasestorage.app",
+  messagingSenderId: "633240001820",
+  appId: "1:633240001820:web:9a813dec49d00e1e6a2ed9",
+  measurementId: "G-WTNG0T0EZM"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+// ── Admin UIDs (أضف UID الخاص بك هنا) ──
+const ADMIN_UIDS = ["yDNRRh5Ua5TcgPZMA8WJHhHbR3g1"];
+
+let allUsers = [];
+let selectedPlan = '';
+
+// يمنع XSS المخزّن: أي نص يُدخله المستخدم (اسم الشركة، الهاتف، البريد،
+// الملاحظة...) يُدرَج هنا عبر innerHTML، فيجب تحويل أحرف HTML الخاصة
+// إلى كيانات نصية قبل إدراجه.
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// ══ Auth ══
+window.adminLogin = async function() {
+  const email = document.getElementById('adminEmail').value;
+  const pass = document.getElementById('adminPass').value;
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    if (!ADMIN_UIDS.includes(cred.user.uid)) {
+      await signOut(auth);
+      err.textContent = '❌ ليس لديك صلاحية الوصول';
+      err.style.display = 'block';
+    }
+  } catch(e) {
+    err.textContent = '❌ ' + (e.code === 'auth/wrong-password' ? 'كلمة المرور خاطئة' :
+      e.code === 'auth/user-not-found' ? 'المستخدم غير موجود' : e.message);
+    err.style.display = 'block';
+  }
+};
+
+onAuthStateChanged(auth, user => {
+  if (user && ADMIN_UIDS.includes(user.uid)) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('loginStatus').textContent = '✅ ' + user.email;
+    loadUsers();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('loginStatus').textContent = 'غير مسجّل';
+  }
+});
+
+// ══ Load Users ══
+window.loadUsers = async function() {
+  document.getElementById('usersTable').innerHTML =
+    '<tr><td colspan="9" class="loading">⏳ جاري التحميل...</td></tr>';
+
+  const snap = await get(ref(db, 'users'));
+  if (!snap.exists()) {
+    document.getElementById('usersTable').innerHTML =
+      '<tr><td colspan="9" class="empty"><div class="ico">📭</div>لا يوجد مستخدمون</td></tr>';
+    return;
+  }
+
+  allUsers = [];
+  snap.forEach(child => {
+    const u = child.val();
+    u._uid = child.key;
+    // حساب الأرصدة
+    u._accountCount = u.accounts ? Object.keys(u.accounts).length : 0;
+    u._opCount = u.operations ? Object.keys(u.operations).length : 0;
+    allUsers.push(u);
+  });
+
+  allUsers.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  renderUsers(allUsers);
+  updateStats(allUsers);
+  renderExpiring(allUsers);
+};
+
+function renderUsers(users) {
+  const tbody = document.getElementById('usersTable');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty"><div class="ico">🔍</div>لا توجد نتائج</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map((u, i) => {
+    const sub = u.subscription || {};
+    const plan = sub.plan || 'free';
+    const status = getStatus(sub);
+    const expiry = sub.expiresAt ? new Date(sub.expiresAt) : null;
+    const expiryStr = expiry ? formatDate(expiry) : (plan === 'lifetime' ? '♾️ دائم' : '—');
+    const daysLeft = expiry ? Math.ceil((expiry - Date.now()) / 86400000) : null;
+    const expiryClass = daysLeft !== null
+      ? (daysLeft < 0 ? 'expiry-expired' : daysLeft < 7 ? 'expiry-warning' : 'expiry-ok')
+      : '';
+    const company = u.companyInfo?.name || u.company?.name || '—';
+
+    return `<tr>
+      <td style="color:#a0aec0;">${i+1}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(u.email || '')}">${escapeHtml(u.email || '—')}</td>
+      <td>${escapeHtml(company)}</td>
+      <td>${planBadge(plan)}</td>
+      <td>${statusBadge(status)}</td>
+      <td class="${expiryClass}">${expiryStr}${daysLeft !== null && daysLeft >= 0 ? `<br><small>(${daysLeft} يوم)</small>` : ''}</td>
+      <td style="text-align:center;">${u._accountCount}</td>
+      <td style="text-align:center;">${u._opCount}</td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="openEdit('${u._uid}')">✏️ تعديل</button>
+        <button class="btn btn-sm btn-outline" onclick="openDetail('${u._uid}')" style="margin-top:4px;">👁️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function planBadge(plan) {
+  const map = { free:'badge-free', monthly:'badge-monthly', yearly:'badge-yearly', lifetime:'badge-lifetime' };
+  const labels = { free:'مجاني', monthly:'شهري', yearly:'سنوي', lifetime:'مدى الحياة' };
+  return `<span class="badge ${map[plan]||'badge-free'}">${labels[plan]||plan}</span>`;
+}
+
+function statusBadge(status) {
+  return status === 'active'
+    ? '<span class="badge badge-active">✅ نشط</span>'
+    : '<span class="badge badge-expired">❌ منتهي</span>';
+}
+
+function getStatus(sub) {
+  const plan = sub.plan || 'free';
+  if (plan === 'free' || plan === 'lifetime') return 'active';
+  if (!sub.expiresAt) return 'active';
+  return new Date(sub.expiresAt) > new Date() ? 'active' : 'expired';
+}
+
+function formatDate(d) {
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padLeft ? String(d.getMonth()+1).padStart(2,'0') : (d.getMonth()+1)}/${String(d.getDate()).padStart ? String(d.getDate()).padStart(2,'0') : d.getDate()}`;
+}
+
+// ══ Stats ══
+function updateStats(users) {
+  const plans = { free:0, monthly:0, yearly:0, lifetime:0 };
+  let expired = 0, expiring7 = 0, revenue = 0, activePaid = 0;
+  const prices = { monthly:49.99, yearly:449.99, lifetime:999.99 };
+
+  users.forEach(u => {
+    const sub = u.subscription || {};
+    const plan = sub.plan || 'free';
+    plans[plan] = (plans[plan]||0) + 1;
+    const status = getStatus(sub);
+    if (status === 'expired') expired++;
+    if (sub.expiresAt) {
+      const d = Math.ceil((new Date(sub.expiresAt) - Date.now()) / 86400000);
+      if (d >= 0 && d <= 7 && plan !== 'free' && plan !== 'lifetime') expiring7++;
+      if (plan !== 'free') revenue += prices[plan] || 0;
+      if (status === 'active' && plan !== 'free') activePaid++;
+    }
+    if (plan === 'lifetime') { revenue += prices.lifetime; activePaid++; }
+  });
+
+  document.getElementById('s-total').textContent = users.length;
+  document.getElementById('s-free').textContent = plans.free || 0;
+  document.getElementById('s-monthly').textContent = plans.monthly || 0;
+  document.getElementById('s-yearly').textContent = plans.yearly || 0;
+  document.getElementById('s-lifetime').textContent = plans.lifetime || 0;
+  document.getElementById('s-expired').textContent = expired;
+  document.getElementById('s-revenue').textContent = '$' + revenue.toLocaleString('en', {minimumFractionDigits:2});
+  document.getElementById('s-expiring7').textContent = expiring7;
+  document.getElementById('s-active').textContent = activePaid;
+}
+
+// ══ Expiring ══
+function renderExpiring(users) {
+  const rows = users.filter(u => {
+    const sub = u.subscription || {};
+    if (!sub.expiresAt) return false;
+    const d = Math.ceil((new Date(sub.expiresAt) - Date.now()) / 86400000);
+    return d >= 0 && d <= 14 && (sub.plan === 'monthly' || sub.plan === 'yearly');
+  }).sort((a, b) => new Date(a.subscription.expiresAt) - new Date(b.subscription.expiresAt));
+
+  const tbody = document.getElementById('expiringTable');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">✅</div>لا توجد اشتراكات تنتهي قريباً</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(u => {
+    const sub = u.subscription;
+    const exp = new Date(sub.expiresAt);
+    const days = Math.ceil((exp - Date.now()) / 86400000);
+    const cls = days <= 3 ? 'expiry-warning' : 'expiry-ok';
+    const company = u.companyInfo?.name || '—';
+    return `<tr>
+      <td>${escapeHtml(u.email || '—')}</td>
+      <td>${escapeHtml(company)}</td>
+      <td>${planBadge(sub.plan)}</td>
+      <td>${formatDate(exp)}</td>
+      <td class="${cls}">${days} يوم</td>
+      <td><button class="btn btn-warning btn-sm" onclick="openEdit('${u._uid}')">🔄 تجديد</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══ Filter ══
+window.filterUsers = function() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const pf = document.getElementById('planFilter').value;
+  const sf = document.getElementById('statusFilter').value;
+  const filtered = allUsers.filter(u => {
+    const plan = u.subscription?.plan || 'free';
+    const status = getStatus(u.subscription || {});
+    const txt = (u.email + (u.companyInfo?.name || '') + (u.company?.name || '')).toLowerCase();
+    return (!q || txt.includes(q)) && (!pf || plan === pf) && (!sf || status === sf);
+  });
+  renderUsers(filtered);
+};
+
+// ══ Edit Modal ══
+window.openEdit = function(uid) {
+  const u = allUsers.find(x => x._uid === uid);
+  if (!u) return;
+  document.getElementById('editUid').value = uid;
+  document.getElementById('editEmail').value = u.email || '';
+  document.getElementById('editNote').value = '';
+  document.getElementById('customExpiry').value = '';
+  selectedPlan = u.subscription?.plan || 'free';
+  document.querySelectorAll('.plan-opt').forEach(el => el.classList.remove('selected'));
+  const pel = document.getElementById('plan-' + selectedPlan);
+  if (pel) pel.classList.add('selected');
+  const cr = document.getElementById('customDateRow');
+  cr.style.display = (selectedPlan === 'free' || selectedPlan === 'lifetime') ? 'none' : 'block';
+  document.getElementById('editModal').classList.add('open');
+};
+
+window.selectPlan = function(plan) {
+  selectedPlan = plan;
+  document.querySelectorAll('.plan-opt').forEach(el => el.classList.remove('selected'));
+  document.getElementById('plan-' + plan).classList.add('selected');
+  const cr = document.getElementById('customDateRow');
+  cr.style.display = (plan === 'free' || plan === 'lifetime') ? 'none' : 'block';
+};
+
+window.saveSubscription = async function() {
+  const uid = document.getElementById('editUid').value;
+  if (!uid || !selectedPlan) { toast('❌ اختر الخطة أولاً', 'error'); return; }
+
+  let expiresAt = null;
+  const customDate = document.getElementById('customExpiry').value;
+  if (customDate) {
+    expiresAt = new Date(customDate).toISOString();
+  } else if (selectedPlan === 'monthly') {
+    const d = new Date(); d.setDate(d.getDate() + 30);
+    expiresAt = d.toISOString();
+  } else if (selectedPlan === 'yearly') {
+    const d = new Date(); d.setDate(d.getDate() + 365);
+    expiresAt = d.toISOString();
+  }
+
+  const subscription = {
+    plan: selectedPlan,
+    updatedAt: new Date().toISOString(),
+    updatedBy: auth.currentUser?.uid || 'admin',
+    note: document.getElementById('editNote').value,
+  };
+  if (expiresAt) subscription.expiresAt = expiresAt;
+  if (selectedPlan === 'lifetime') { delete subscription.expiresAt; subscription.lifetimeGranted = true; }
+
+  try {
+    await update(ref(db, `users/${uid}`), { subscription });
+    // إضافة إشعار للمستخدم
+    await set(ref(db, `users/${uid}/notifications/${Date.now()}`), {
+      type: 'subscription_updated',
+      plan: selectedPlan,
+      expiresAt: expiresAt || null,
+      message: selectedPlan === 'free'
+        ? 'تم تخفيض اشتراكك إلى الخطة المجانية'
+        : selectedPlan === 'lifetime'
+          ? '🎉 تهانينا! لديك اشتراك مدى الحياة'
+          : `✅ تم تفعيل اشتراكك ${selectedPlan === 'monthly' ? 'الشهري' : 'السنوي'}`,
+      createdAt: new Date().toISOString(),
+      read: false,
+    });
+    toast('✅ تم حفظ الاشتراك بنجاح', 'success');
+    closeModal('editModal');
+    loadUsers();
+  } catch(e) {
+    toast('❌ خطأ: ' + e.message, 'error');
+  }
+};
+
+// ══ Detail Modal ══
+window.openDetail = function(uid) {
+  const u = allUsers.find(x => x._uid === uid);
+  if (!u) return;
+  const sub = u.subscription || {};
+  const ci = u.companyInfo || u.company || {};
+  document.getElementById('detailTitle').textContent = '👤 ' + (u.email || uid);
+  document.getElementById('detailContent').innerHTML = `
+    <table style="width:100%;font-size:13px;">
+      <tr><td style="padding:6px;color:#718096;width:130px;">UID</td><td style="font-size:11px;word-break:break-all;">${uid}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">البريد</td><td>${escapeHtml(u.email||'—')}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">الشركة</td><td>${escapeHtml(ci.name||'—')}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">الهاتف</td><td>${escapeHtml(ci.phone||'—')}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">العنوان</td><td>${escapeHtml(ci.address||'—')}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">الخطة</td><td>${planBadge(sub.plan||'free')}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">الحالة</td><td>${statusBadge(getStatus(sub))}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">تاريخ الانتهاء</td><td>${sub.expiresAt ? formatDate(new Date(sub.expiresAt)) : (sub.plan==='lifetime'?'♾️ دائم':'—')}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">الحسابات</td><td>${u._accountCount}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">القيود</td><td>${u._opCount}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">تاريخ الإنشاء</td><td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar') : '—'}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">آخر تحديث اشتراك</td><td>${sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString('ar') : '—'}</td></tr>
+      <tr><td style="padding:6px;color:#718096;">ملاحظة</td><td>${escapeHtml(sub.note||'—')}</td></tr>
+    </table>
+    <div style="margin-top:16px;display:flex;gap:8px;">
+      <button class="btn btn-primary btn-sm" onclick="openEdit('${uid}');closeModal('detailModal')">✏️ تعديل الاشتراك</button>
+    </div>
+  `;
+  document.getElementById('detailModal').classList.add('open');
+};
+
+// ══ Helpers ══
+window.closeModal = function(id) { document.getElementById(id).classList.remove('open'); };
+window.showTab = function(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+};
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  setTimeout(() => el.className = '', 3000);
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+// Enter key on login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') {
+    adminLogin();
+  }
+});
+</script>
+</body>
+</html>
