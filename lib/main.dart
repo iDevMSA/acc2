@@ -6297,6 +6297,10 @@ class _SettingsTabState extends State<_SettingsTab> {
                                         },
                                         isExpanded: true)),
 
+                                //  التحديثات
+                                _sectionHeader(' التحديثات'),
+                                const UpdateSettingsCard(),
+
                                 //  الحساب
                                 _sectionHeader(' الحساب'),
                                 _settingsTile(
