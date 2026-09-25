@@ -1981,6 +1981,201 @@ window.exportInvoicesCSV = function() {
   }
 };
 
+// ── Data Import/Export Functions ────────────────────────────────
+window.downloadCSVTemplate = function() {
+  const headers = ['الاسم', 'الفئة', 'كمية', 'سعر التكلفة', 'سعر البيع', 'الباركود', 'الوصف'];
+  const sampleRow = ['منتج عينة', 'أجهزة', '10', '100', '150', '123456789', 'وصف المنتج'];
+  const csv = [headers.join(','), sampleRow.map(c => `"${c}"`).join(',')].join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'نموذج-المنتجات.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+window.importFromCSV = async function() {
+  const file = document.getElementById('csv-import-file').files[0];
+  if (!file) {
+    showToast('اختر ملفاً أولاً', 'warning');
+    return;
+  }
+
+  const statusEl = document.getElementById('import-status');
+  statusEl.textContent = 'جاري الاستيراد...';
+
+  try {
+    const text = await file.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) throw new Error('الملف فارغ أو غير صحيح');
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const imported = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.replace(/^"|"$/g, '').trim());
+      const product = {};
+
+      headers.forEach((h, idx) => {
+        if (h.includes('الاسم')) product.name = values[idx];
+        if (h.includes('فئة') || h.includes('category')) product.category = values[idx];
+        if (h.includes('كمية') || h.includes('quantity')) product.quantity = parseInt(values[idx]) || 0;
+        if (h.includes('تكلفة') || h.includes('cost')) product.costPrice = parseFloat(values[idx]) || 0;
+        if (h.includes('بيع') || h.includes('price')) product.sellPrice = parseFloat(values[idx]) || 0;
+        if (h.includes('باركود') || h.includes('barcode')) product.barcode = values[idx];
+        if (h.includes('وصف') || h.includes('description')) product.description = values[idx];
+      });
+
+      if (product.name) {
+        const newRef = push(ref(db, `sales/${ownerUid}/products`));
+        await set(newRef, {
+          ...product,
+          id: newRef.key,
+          createdAt: new Date().toISOString()
+        });
+        imported.push(product.name);
+      }
+    }
+
+    statusEl.textContent = `✓ تم استيراد ${imported.length} منتج بنجاح`;
+    document.getElementById('csv-import-file').value = '';
+    showToast(`تم استيراد ${imported.length} منتج`, 'success');
+  } catch(e) {
+    statusEl.textContent = `✗ خطأ: ${e.message}`;
+    showToast('خطأ في الاستيراد: ' + e.message, 'error');
+  }
+};
+
+window.exportProductsCSV = function() {
+  const headers = ['الاسم', 'الفئة', 'الكمية', 'سعر التكلفة', 'سعر البيع', 'الباركود'];
+  const rows = [];
+
+  Object.values(allProducts).forEach(p => {
+    rows.push([
+      p.name || '',
+      p.category || '',
+      p.quantity || 0,
+      p.costPrice || 0,
+      p.sellPrice || 0,
+      p.barcode || ''
+    ]);
+  });
+
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+  ].join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `المنتجات-${new Date().toISOString().substring(0,10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast('تم تصدير المنتجات', 'success');
+};
+
+window.exportEmployeesCSV = function() {
+  const headers = ['الاسم', 'رقم الموظف', 'المسمى الوظيفي', 'الهاتف', 'البريد'];
+  const rows = [];
+
+  Object.values(allEmployees).forEach(e => {
+    rows.push([
+      e.name || '',
+      e.employeeNumber || '',
+      e.position || '',
+      e.phone || '',
+      e.email || ''
+    ]);
+  });
+
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+  ].join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `الموظفون-${new Date().toISOString().substring(0,10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast('تم تصدير الموظفون', 'success');
+};
+
+window.exportBranchesCSV = function() {
+  const headers = ['الاسم', 'المدينة', 'الهاتف', 'العنوان'];
+  const rows = [];
+
+  Object.values(allBranches).forEach(b => {
+    rows.push([
+      b.name || '',
+      b.city || '',
+      b.phone || '',
+      b.address || ''
+    ]);
+  });
+
+  const csv = [
+    headers.join(','),
+    ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+  ].join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `الفروع-${new Date().toISOString().substring(0,10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast('تم تصدير الفروع', 'success');
+};
+
+window.exportAllDataJSON = function() {
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    company: companyInfo,
+    currency: currency,
+    data: {
+      products: allProducts,
+      employees: allEmployees,
+      branches: allBranches,
+      warehouses: allWarehouses,
+      invoices: allInvoices,
+      loyalty: allLoyalty,
+      accounts: allAccounts,
+      operations: allOperations
+    }
+  };
+
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `نسخة-احتياطية-${new Date().toISOString().substring(0,10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast('تم تصدير النسخة الاحتياطية', 'success');
+};
+
+window.deleteAllInvoices = async function() {
+  try {
+    showToast('جاري الحذف...', 'info');
+    const deleteOps = Object.keys(allInvoices).map(id =>
+      remove(ref(db, `sales/${ownerUid}/invoices/${id}`))
+    );
+    await Promise.all(deleteOps);
+    showToast('تم حذف جميع الفواتير', 'success');
+  } catch(e) {
+    showToast('خطأ: ' + e.message, 'error');
+  }
+};
+
 // ── Search & Filter Functions ──────────────────────────────────
 let productFilterText = '';
 let productCategoryFilter = '';

@@ -497,6 +497,40 @@
           <span id="save-spinner" class="spinner hidden"></span>
         </button>
       </div>
+
+      <div class="section-title" style="margin-top:40px">إدارة البيانات</div>
+      <div class="settings-card">
+        <div style="margin-bottom:20px">
+          <h4 style="margin-bottom:12px;color:#1e293b">استيراد البيانات</h4>
+          <p style="color:#64748b;font-size:13px;margin-bottom:12px">استورد المنتجات أو الموظفين من ملف CSV</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div>
+              <input type="file" id="csv-import-file" accept=".csv" style="display:none" />
+              <button class="btn-primary btn-sm" onclick="document.getElementById('csv-import-file').click()">📁 اختر ملف CSV</button>
+            </div>
+            <button class="btn-primary btn-sm" onclick="importFromCSV()" style="background:#10b981">✓ استيراد</button>
+            <button class="btn-primary btn-sm" onclick="downloadCSVTemplate()" style="background:#8b5cf6">📋 تحميل نموذج</button>
+          </div>
+          <div id="import-status" style="margin-top:10px;color:#64748b;font-size:13px"></div>
+        </div>
+
+        <div style="border-top:1px solid #e2e8f0;padding-top:20px">
+          <h4 style="margin-bottom:12px;color:#1e293b">تصدير البيانات</h4>
+          <p style="color:#64748b;font-size:13px;margin-bottom:12px">صدّر بيانات نظامك كاملة للنسخ الاحتياطي</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-primary btn-sm" onclick="exportProductsCSV()" style="background:#10b981">📦 المنتجات</button>
+            <button class="btn-primary btn-sm" onclick="exportEmployeesCSV()" style="background:#10b981">👥 الموظفون</button>
+            <button class="btn-primary btn-sm" onclick="exportBranchesCSV()" style="background:#10b981">🏪 الفروع</button>
+            <button class="btn-primary btn-sm" onclick="exportAllDataJSON()" style="background:#3b82f6">💾 نسخة احتياطية كاملة</button>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #e2e8f0;padding-top:20px">
+          <h4 style="margin-bottom:12px;color:#1e293b">الخطورة</h4>
+          <p style="color:#f59e0b;font-size:13px;margin-bottom:12px">⚠️ احذر: هذه العمليات قد تؤثر على جميع البيانات</p>
+          <button class="btn-danger btn-sm" onclick="if(confirm('هل تريد حقاً مسح جميع الفواتير؟')) deleteAllInvoices()">حذف جميع الفواتير</button>
+        </div>
+      </div>
     </section>
   </main>
 </div>
