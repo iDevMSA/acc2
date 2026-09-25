@@ -154,30 +154,81 @@
 
     <!-- ── Dashboard ───────────────── -->
     <section id="tab-dashboard" class="tab-content active">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+        <div class="section-title">لوحة التحكم</div>
+        <div style="display:flex;gap:10px">
+          <select id="dashboard-period" onchange="refreshDashboard()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-family:Cairo,sans-serif">
+            <option value="today">اليوم</option>
+            <option value="week">هذا الأسبوع</option>
+            <option value="month">هذا الشهر</option>
+            <option value="year">هذا العام</option>
+          </select>
+        </div>
+      </div>
+
       <div class="kpi-grid" id="kpi-grid">
         <div class="kpi-card blue">
           <div class="kpi-icon">💰</div>
           <div class="kpi-val" id="kpi-revenue">0</div>
-          <div class="kpi-label">إيرادات اليوم</div>
+          <div class="kpi-sub" id="kpi-revenue-change" style="color:#10b981;font-size:12px;margin-top:4px">—</div>
+          <div class="kpi-label">الإيرادات</div>
         </div>
         <div class="kpi-card green">
           <div class="kpi-icon">🧾</div>
           <div class="kpi-val" id="kpi-invoices">0</div>
-          <div class="kpi-label">فواتير اليوم</div>
+          <div class="kpi-sub" id="kpi-invoices-change" style="color:#10b981;font-size:12px;margin-top:4px">—</div>
+          <div class="kpi-label">الفواتير</div>
         </div>
         <div class="kpi-card purple">
           <div class="kpi-icon">🏪</div>
           <div class="kpi-val" id="kpi-branches">0</div>
-          <div class="kpi-label">الفروع</div>
+          <div class="kpi-label">الفروع النشطة</div>
         </div>
         <div class="kpi-card orange">
           <div class="kpi-icon">🖥️</div>
           <div class="kpi-val" id="kpi-registers">0</div>
-          <div class="kpi-label">صناديق مفتوحة</div>
+          <div class="kpi-label">الصناديق المفتوحة</div>
         </div>
       </div>
 
-      <div class="section-title">آخر الفواتير</div>
+      <div class="reports-grid">
+        <div class="report-card">
+          <div class="report-card-title">المبيعات حسب طرق الدفع</div>
+          <div style="position:relative;height:250px">
+            <canvas id="dashPaymentChartCanvas"></canvas>
+          </div>
+        </div>
+        <div class="report-card">
+          <div class="report-card-title">أفضل المنتجات</div>
+          <div style="position:relative;height:250px">
+            <canvas id="dashTopProductsCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-card full-width" style="margin-top:24px">
+        <div class="report-card-title">الأداء المتوسط</div>
+        <div class="dashboard-stats">
+          <div class="stat-item">
+            <div class="stat-label">متوسط الفاتورة</div>
+            <div class="stat-value" id="stat-avg-invoice">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">إجمالي الضريبة</div>
+            <div class="stat-value" id="stat-total-vat">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">المتوسط اليومي</div>
+            <div class="stat-value" id="stat-daily-avg">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">أعلى فاتورة</div>
+            <div class="stat-value" id="stat-max-invoice">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:32px">آخر الفواتير</div>
       <div id="recent-invoices" class="card-list"></div>
     </section>
 

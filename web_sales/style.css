@@ -558,3 +558,31 @@ body {
 .search-bar input::placeholder {
   color: #94a3b8;
 }
+
+/* ── Dashboard Stats ─────────────────────────── */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+}
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.stat-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.stat-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #021b79;
+}

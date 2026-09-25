@@ -749,16 +749,75 @@ window.showInvoiceDetail = function(id) {
 };
 
 // ── Dashboard ───────────────────────────────────────────────────
+function getDashboardDateRange() {
+  const period = document.getElementById('dashboard-period')?.value || 'today';
+  const now = new Date();
+  let from = new Date(now);
+  let to = new Date(now);
+  to.setHours(23,59,59,999);
+
+  switch(period) {
+    case 'week':
+      from.setDate(now.getDate() - now.getDay());
+      from.setHours(0,0,0,0);
+      break;
+    case 'month':
+      from.setDate(1);
+      from.setHours(0,0,0,0);
+      break;
+    case 'year':
+      from.setMonth(0,1);
+      from.setHours(0,0,0,0);
+      break;
+    case 'today':
+    default:
+      from.setHours(0,0,0,0);
+  }
+  return { from, to };
+}
+
 function refreshDashboard() {
-  const today = new Date(); today.setHours(0,0,0,0);
+  const { from, to } = getDashboardDateRange();
   const entries = Object.entries(allInvoices)
-    .filter(([,inv]) => inv.status === 'closed' && new Date(inv.createdAt) >= today);
+    .filter(([,inv]) => inv.status === 'closed' && new Date(inv.createdAt) >= from && new Date(inv.createdAt) <= to);
+
   const revenue = entries.reduce((s,[,inv]) => s + totalInv(inv), 0);
   const sym = currencySym(currency);
+  const count = entries.length;
+  const avg = count ? revenue / count : 0;
+
+  // Calculate previous period comparison
+  let prevFrom = new Date(from);
+  let prevTo = new Date(to);
+  const diff = to.getTime() - from.getTime();
+  prevFrom.setTime(prevFrom.getTime() - diff - 864e5);
+  prevTo.setTime(prevTo.getTime() - diff);
+
+  const prevEntries = Object.entries(allInvoices)
+    .filter(([,inv]) => inv.status === 'closed' && new Date(inv.createdAt) >= prevFrom && new Date(inv.createdAt) <= prevTo);
+  const prevRevenue = prevEntries.reduce((s,[,inv]) => s + totalInv(inv), 0);
+  const prevCount = prevEntries.length;
+
+  const revenueChange = prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue * 100).toFixed(1) : 0;
+  const invoiceChange = prevCount > 0 ? ((count - prevCount) / prevCount * 100).toFixed(1) : 0;
 
   document.getElementById('kpi-revenue').textContent   = `${revenue.toFixed(2)} ${sym}`;
-  document.getElementById('kpi-invoices').textContent  = entries.length;
+  document.getElementById('kpi-revenue-change').textContent = `${revenueChange > 0 ? '↑' : '↓'} ${Math.abs(revenueChange)}%`;
+  document.getElementById('kpi-invoices').textContent  = count;
+  document.getElementById('kpi-invoices-change').textContent = `${invoiceChange > 0 ? '↑' : '↓'} ${Math.abs(invoiceChange)}%`;
   document.getElementById('kpi-branches').textContent  = Object.keys(allBranches).length;
+
+  // More detailed statistics
+  const vatTotal = entries.reduce((s,[,inv]) =>
+    s + (inv.items||[]).reduce((ss,i)=>ss + i.quantity*i.unitPrice*(i.vatRate||0)/100, 0), 0);
+  const dayCount = Math.ceil((to.getTime() - from.getTime()) / 864e5);
+  const dailyAvg = dayCount > 0 ? revenue / dayCount : 0;
+  const maxInv = entries.reduce((max, [,inv]) => Math.max(max, totalInv(inv)), 0);
+
+  document.getElementById('stat-avg-invoice').textContent = `${avg.toFixed(2)} ${sym}`;
+  document.getElementById('stat-total-vat').textContent = `${vatTotal.toFixed(2)} ${sym}`;
+  document.getElementById('stat-daily-avg').textContent = `${dailyAvg.toFixed(2)} ${sym}`;
+  document.getElementById('stat-max-invoice').textContent = `${maxInv.toFixed(2)} ${sym}`;
 
   // صناديق مفتوحة
   const regsSnap = ref(db, `sales/${ownerUid}/cashRegisters`);
@@ -768,12 +827,15 @@ function refreshDashboard() {
     document.getElementById('kpi-registers').textContent = open;
   });
 
+  // Render charts
+  renderDashboardCharts(entries);
+
   // آخر الفواتير
   const recent = entries
     .sort((a,b) => new Date(b[1].createdAt) - new Date(a[1].createdAt))
     .slice(0, 8);
   const el = document.getElementById('recent-invoices');
-  if (!recent.length) { el.innerHTML = emptyState('🧾', 'لا توجد فواتير اليوم'); return; }
+  if (!recent.length) { el.innerHTML = emptyState('🧾', 'لا توجد فواتير'); return; }
   el.innerHTML = recent.map(([id, inv]) => `
     <div class="card-item" onclick="showInvoiceDetail('${id}')">
       <div class="card-icon">🧾</div>
@@ -783,6 +845,53 @@ function refreshDashboard() {
       </div>
       <div class="card-badge">${totalInv(inv).toFixed(2)} ${sym}</div>
     </div>`).join('');
+}
+
+function renderDashboardCharts(entries) {
+  const sym = currencySym(currency);
+
+  // Payment methods chart
+  const payMap = {};
+  entries.forEach(([,inv]) => {
+    const pm = inv.paymentMethod || 'النقد';
+    payMap[pm] = (payMap[pm] || 0) + totalInv(inv);
+  });
+  if (Object.keys(payMap).length > 0) {
+    createChartIfNeeded('dashPaymentChartCanvas', 'pie', {
+      labels: Object.keys(payMap),
+      datasets: [{
+        data: Object.values(payMap),
+        backgroundColor: ['#3b82f6','#10b981','#8b5cf6','#f59e0b'],
+        borderColor: '#fff',
+        borderWidth: 2
+      }]
+    });
+  }
+
+  // Top products
+  const prodMap = {};
+  entries.forEach(([,inv]) => {
+    (inv.items || []).forEach(item => {
+      const pname = item.productName || 'غير معروف';
+      prodMap[pname] = (prodMap[pname] || 0) + (item.quantity || 0);
+    });
+  });
+  const top5 = Object.entries(prodMap)
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 5)
+    .reduce((a,[k,v]) => ({...a, [k]:v}), {});
+  if (Object.keys(top5).length > 0) {
+    createChartIfNeeded('dashTopProductsCanvas', 'bar', {
+      labels: Object.keys(top5),
+      datasets: [{
+        label: 'الوحدات',
+        data: Object.values(top5),
+        backgroundColor: '#8b5cf6',
+        borderColor: '#6d28d9',
+        borderWidth: 1
+      }]
+    });
+  }
 }
 
 // ── Reports ─────────────────────────────────────────────────────
