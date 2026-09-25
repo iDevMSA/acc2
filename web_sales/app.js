@@ -2176,15 +2176,58 @@ window.deleteAllInvoices = async function() {
   }
 };
 
+// ── Performance Utilities ──────────────────────────────────────
+function debounce(func, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(this, args), delay);
+  };
+}
+
+// Pagination state
+let currentPage = 1;
+let itemsPerPage = 20;
+function paginate(items, page = 1) {
+  const start = (page - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return items.slice(start, end);
+}
+function renderPaginationButtons(totalItems, currentPage, onPageChange) {
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  let html = '<div style="text-align:center;padding:20px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap">';
+
+  if (currentPage > 1) {
+    html += `<button class="btn-primary btn-sm" onclick="onPageChange(${currentPage - 1})">← السابق</button>`;
+  }
+
+  for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+    if (i === currentPage) {
+      html += `<button class="btn-primary btn-sm" style="background:#10b981" disabled>${i}</button>`;
+    } else {
+      html += `<button class="btn-primary btn-sm" onclick="onPageChange(${i})">${i}</button>`;
+    }
+  }
+
+  if (currentPage < totalPages) {
+    html += `<button class="btn-primary btn-sm" onclick="onPageChange(${currentPage + 1})">التالي →</button>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 // ── Search & Filter Functions ──────────────────────────────────
 let productFilterText = '';
 let productCategoryFilter = '';
 
-window.filterProducts = function() {
+// Debounce product filter to avoid excessive renders
+window.filterProducts = debounce(function() {
   productFilterText = (document.getElementById('product-search')?.value || '').toLowerCase();
   productCategoryFilter = document.getElementById('product-category-filter')?.value || '';
+  currentPage = 1;
   renderProducts();
-};
+}, 300);
 
 window.filterEmployees = function() {
   const searchText = (document.getElementById('employee-search')?.value || '').toLowerCase();
