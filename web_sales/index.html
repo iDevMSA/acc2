@@ -2,8 +2,20 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#021B79" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="منصتي المحاسبية" />
+  <meta name="description" content="نظام إدارة مبيعات محاسبي متكامل وذكي" />
+
   <title>المنصة المحاسبية — نظام المبيعات</title>
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23021B79' width='192' height='192'/><path fill='white' opacity='0.9' d='M96 48L144 120H48Z'/><circle cx='96' cy='132' r='12' fill='white'/></svg>" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23021B79' width='192' height='192' rx='44'/><path fill='white' opacity='0.9' d='M96 48L144 120H48Z'/><circle cx='96' cy='132' r='12' fill='white'/></svg>" />
+  <link rel="manifest" href="manifest.json" />
+
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
@@ -145,6 +157,9 @@
         <input type="text" id="global-search" placeholder="🔍 بحث عام..." style="width:300px;max-width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-family:Cairo,sans-serif;display:none" oninput="doGlobalSearch()" />
       </div>
       <div class="topbar-actions">
+        <button id="install-btn" class="btn-primary btn-sm" onclick="installApp()" style="display:none;margin-right:12px">
+          ⬇️ تثبيت التطبيق
+        </button>
         <div class="realtime-badge">
           <span class="dot-live"></span>
           متصل مباشر
@@ -796,6 +811,58 @@
 <!-- jsPDF for PDF export -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          console.log('✓ Service Worker registered', reg);
+
+          // Check for updates
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New version available
+                console.log('New version available - refresh to update');
+              }
+            });
+          });
+        })
+        .catch(err => console.log('Service Worker registration failed:', err));
+    });
+  }
+
+  // Add to home screen prompt
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    console.log('App can be installed');
+
+    // Show install button
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) {
+      installBtn.style.display = 'inline-block';
+    }
+  });
+
+  window.installApp = function() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        } else {
+          console.log('User dismissed the install prompt');
+        }
+        deferredPrompt = null;
+      });
+    }
+  };
+</script>
 
 <!-- Firebase SDK -->
 <script type="module" src="app.js"></script>

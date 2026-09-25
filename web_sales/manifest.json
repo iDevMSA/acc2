@@ -1,0 +1,82 @@
+{
+  "name": "المنصة المحاسبية - نظام المبيعات",
+  "short_name": "منصتي المحاسبية",
+  "description": "نظام إدارة مبيعات محاسبي متكامل وذكي",
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#021B79",
+  "prefer_related_applications": false,
+  "categories": ["business", "productivity"],
+  "screenshots": [
+    {
+      "src": "/icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23021B79' width='192' height='192'/><path fill='white' opacity='0.9' d='M96 48L144 120H48Z'/><circle cx='96' cy='132' r='12' fill='white'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%23021B79' width='512' height='512'/><path fill='white' opacity='0.9' d='M256 128L384 320H128Z'/><circle cx='256' cy='352' r='32' fill='white'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "الفواتير",
+      "short_name": "الفواتير",
+      "description": "عرض والعثور على الفواتير",
+      "url": "/?tab=invoices",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%23021B79' width='96' height='96' rx='22'/><text x='48' y='60' text-anchor='middle' font-size='40' fill='white'>🧾</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "المنتجات",
+      "short_name": "المنتجات",
+      "description": "إدارة المنتجات والمخزون",
+      "url": "/?tab=products",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%231a5f3c' width='96' height='96' rx='22'/><text x='48' y='60' text-anchor='middle' font-size='40' fill='white'>📦</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "التقارير",
+      "short_name": "التقارير",
+      "description": "عرض التقارير والإحصائيات",
+      "url": "/?tab=reports",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%236d28d9' width='96' height='96' rx='22'/><text x='48' y='60' text-anchor='middle' font-size='40' fill='white'>📊</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
