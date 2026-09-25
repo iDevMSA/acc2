@@ -221,10 +221,13 @@
     <section id="tab-invoices" class="tab-content">
       <div class="section-header">
         <div class="section-title">الفواتير</div>
-        <div class="date-filters">
-          <input type="date" id="inv-from" onchange="filterInvoices()" />
-          <span>إلى</span>
-          <input type="date" id="inv-to" onchange="filterInvoices()" />
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="date-filters">
+            <input type="date" id="inv-from" onchange="filterInvoices()" />
+            <span>إلى</span>
+            <input type="date" id="inv-to" onchange="filterInvoices()" />
+          </div>
+          <button class="btn-primary btn-sm" onclick="exportInvoicesCSV()">📊 تصدير CSV</button>
         </div>
       </div>
       <div id="invoices-list" class="card-list"></div>
@@ -234,10 +237,14 @@
     <section id="tab-reports" class="tab-content">
       <div class="section-header">
         <div class="section-title">التقارير والإحصائيات</div>
-        <div class="date-filters">
-          <input type="date" id="rep-from" onchange="loadReports()" />
-          <span>إلى</span>
-          <input type="date" id="rep-to" onchange="loadReports()" />
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="date-filters">
+            <input type="date" id="rep-from" onchange="loadReports()" />
+            <span>إلى</span>
+            <input type="date" id="rep-to" onchange="loadReports()" />
+          </div>
+          <button class="btn-primary btn-sm" onclick="exportReportPDF()">📄 تصدير PDF</button>
+          <button class="btn-primary btn-sm" onclick="exportReportCSV()">📊 تصدير CSV</button>
         </div>
       </div>
       <div class="kpi-grid">
@@ -265,16 +272,31 @@
       <div class="reports-grid">
         <div class="report-card">
           <div class="report-card-title">توزيع طرق الدفع</div>
-          <div id="payment-chart" class="bar-chart-wrap"></div>
+          <div style="position:relative;height:300px">
+            <canvas id="paymentChartCanvas"></canvas>
+          </div>
+          <div id="payment-chart" class="bar-chart-wrap" style="display:none"></div>
         </div>
         <div class="report-card">
           <div class="report-card-title">أكثر المنتجات مبيعاً</div>
-          <div id="products-chart" class="bar-chart-wrap"></div>
+          <div style="position:relative;height:300px">
+            <canvas id="productsChartCanvas"></canvas>
+          </div>
+          <div id="products-chart" class="bar-chart-wrap" style="display:none"></div>
         </div>
       </div>
       <div class="report-card full-width">
         <div class="report-card-title">المبيعات اليومية</div>
-        <div id="daily-chart" class="bar-chart-wrap"></div>
+        <div style="position:relative;height:400px">
+          <canvas id="dailyChartCanvas"></canvas>
+        </div>
+        <div id="daily-chart" class="bar-chart-wrap" style="display:none"></div>
+      </div>
+      <div class="report-card full-width" style="margin-top:24px">
+        <div class="report-card-title">تحليل الإيرادات حسب الفرع</div>
+        <div style="position:relative;height:300px">
+          <canvas id="branchChartCanvas"></canvas>
+        </div>
       </div>
     </section>
 
@@ -660,6 +682,13 @@
 
 <!-- ════════ Toast ════════ -->
 <div id="toast" class="toast hidden"></div>
+
+<!-- Chart.js for advanced visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- jsPDF for PDF export -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <!-- Firebase SDK -->
 <script type="module" src="app.js"></script>

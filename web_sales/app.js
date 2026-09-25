@@ -833,6 +833,11 @@ function refreshReports() {
   });
   const sortedDays = Object.fromEntries(Object.entries(dayMap).sort((a,b)=>a[0].localeCompare(b[0])));
   renderBarChart('daily-chart', sortedDays, sym);
+
+  // Render Chart.js charts
+  if (typeof renderCharts === 'function') {
+    renderCharts();
+  }
 }
 
 window.loadReports = refreshReports;
@@ -1574,6 +1579,288 @@ function recalcOpUSD() {
     hint.textContent = '';
   }
 }
+
+// ── Chart.js implementations ────────────────────────────────────
+let chartInstances = {};
+
+function createChartIfNeeded(canvasId, type, data, options = {}) {
+  if (chartInstances[canvasId]) {
+    chartInstances[canvasId].destroy();
+  }
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: type,
+    data: data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { font: { family: "'Cairo', sans-serif", size: 12 } } } },
+      scales: {
+        x: { ticks: { font: { family: "'Cairo', sans-serif" } } },
+        y: { ticks: { font: { family: "'Cairo', sans-serif" } } }
+      },
+      ...options
+    }
+  });
+}
+
+function renderCharts() {
+  // Payment methods chart (Pie)
+  const payMap = {};
+  Object.values(allInvoices).forEach(inv => {
+    const pm = inv.paymentMethod || 'النقد';
+    payMap[pm] = (payMap[pm] || 0) + (inv.total || 0);
+  });
+  if (Object.keys(payMap).length > 0) {
+    createChartIfNeeded('paymentChartCanvas', 'doughnut', {
+      labels: Object.keys(payMap),
+      datasets: [{
+        data: Object.values(payMap),
+        backgroundColor: ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4'],
+        borderColor: '#fff',
+        borderWidth: 2
+      }]
+    });
+  }
+
+  // Top products chart (Horizontal Bar)
+  const prodMap = {};
+  Object.values(allInvoices).forEach(inv => {
+    (inv.items || []).forEach(item => {
+      const pname = allProducts[item.productId]?.name || 'غير معروف';
+      prodMap[pname] = (prodMap[pname] || 0) + (item.quantity || 0);
+    });
+  });
+  const top10Prods = Object.entries(prodMap)
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 10)
+    .reduce((a,[k,v]) => ({...a, [k]:v}), {});
+  if (Object.keys(top10Prods).length > 0) {
+    createChartIfNeeded('productsChartCanvas', 'bar', {
+      labels: Object.keys(top10Prods),
+      datasets: [{
+        label: 'الوحدات المباعة',
+        data: Object.values(top10Prods),
+        backgroundColor: '#8b5cf6',
+        borderColor: '#6d28d9',
+        borderWidth: 1
+      }]
+    }, { indexAxis: 'y' });
+  }
+
+  // Daily sales chart (Line)
+  const dayMap = {};
+  Object.values(allInvoices).forEach(inv => {
+    const d = (inv.date || '').substring(0, 10);
+    dayMap[d] = (dayMap[d] || 0) + (inv.total || 0);
+  });
+  const sortedDays = Object.entries(dayMap).sort((a,b) => a[0].localeCompare(b[0]));
+  if (sortedDays.length > 0) {
+    createChartIfNeeded('dailyChartCanvas', 'line', {
+      labels: sortedDays.map(x => x[0]),
+      datasets: [{
+        label: 'المبيعات اليومية',
+        data: sortedDays.map(x => x[1]),
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#3b82f6',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 4
+      }]
+    });
+  }
+
+  // Branch revenue chart (Bar)
+  const branchMap = {};
+  Object.values(allInvoices).forEach(inv => {
+    const bname = allBranches[inv.branchId]?.name || 'غير معروف';
+    branchMap[bname] = (branchMap[bname] || 0) + (inv.total || 0);
+  });
+  if (Object.keys(branchMap).length > 0) {
+    createChartIfNeeded('branchChartCanvas', 'bar', {
+      labels: Object.keys(branchMap),
+      datasets: [{
+        label: 'الإيرادات حسب الفرع',
+        data: Object.values(branchMap),
+        backgroundColor: '#10b981',
+        borderColor: '#059669',
+        borderWidth: 1
+      }]
+    });
+  }
+}
+
+// ── PDF Export ──────────────────────────────────────────────────
+window.exportReportPDF = async function() {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPos = 10;
+
+    // Header
+    doc.setFont('Cairo', 'bold');
+    doc.setFontSize(16);
+    doc.text('التقارير والإحصائيات', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    // Company info
+    doc.setFontSize(10);
+    doc.setFont('Cairo', 'normal');
+    doc.text(`الشركة: ${companyInfo.name || '—'}`, 10, yPos);
+    yPos += 6;
+    doc.text(`التاريخ: ${new Date().toLocaleDateString('ar-SA')}`, 10, yPos);
+    yPos += 10;
+
+    // KPIs
+    doc.setFont('Cairo', 'bold');
+    doc.setFontSize(11);
+    doc.text('ملخص الأداء:', 10, yPos);
+    yPos += 8;
+
+    doc.setFontSize(9);
+    doc.setFont('Cairo', 'normal');
+    const repRev = document.getElementById('rep-revenue')?.textContent || '0';
+    const repCount = document.getElementById('rep-count')?.textContent || '0';
+    const repAvg = document.getElementById('rep-avg')?.textContent || '0';
+    const repVat = document.getElementById('rep-vat')?.textContent || '0';
+
+    doc.text(`إجمالي الإيرادات: ${repRev}`, 10, yPos);
+    yPos += 6;
+    doc.text(`عدد الفواتير: ${repCount}`, 10, yPos);
+    yPos += 6;
+    doc.text(`متوسط الفاتورة: ${repAvg}`, 10, yPos);
+    yPos += 6;
+    doc.text(`إجمالي الضريبة: ${repVat}`, 10, yPos);
+    yPos += 12;
+
+    // Add charts as images
+    const chartCanvases = [
+      { id: 'paymentChartCanvas', title: 'توزيع طرق الدفع' },
+      { id: 'productsChartCanvas', title: 'أكثر المنتجات مبيعاً' },
+      { id: 'dailyChartCanvas', title: 'المبيعات اليومية' },
+      { id: 'branchChartCanvas', title: 'الإيرادات حسب الفرع' }
+    ];
+
+    for (const chart of chartCanvases) {
+      const canvas = document.getElementById(chart.id);
+      if (canvas && yPos > pageHeight - 80) {
+        doc.addPage();
+        yPos = 10;
+      }
+      if (canvas) {
+        const imgData = canvas.toDataURL('image/png');
+        doc.text(chart.title, 10, yPos);
+        yPos += 6;
+        doc.addImage(imgData, 'PNG', 10, yPos, pageWidth - 20, 50);
+        yPos += 60;
+      }
+    }
+
+    doc.save(`تقارير-${new Date().toISOString().substring(0,10)}.pdf`);
+    showToast('تم تصدير التقارير بنجاح', 'success');
+  } catch(e) {
+    showToast('خطأ في التصدير: ' + e.message, 'error');
+  }
+};
+
+// ── CSV Export ──────────────────────────────────────────────────
+window.exportReportCSV = function() {
+  try {
+    const from = document.getElementById('rep-from')?.value || '';
+    const to = document.getElementById('rep-to')?.value || '';
+
+    const headers = ['التاريخ', 'رقم الفاتورة', 'المبلغ', 'الضريبة', 'الإجمالي', 'طريقة الدفع', 'الفرع'];
+    const rows = [];
+
+    Object.values(allInvoices)
+      .filter(inv => {
+        const d = (inv.date || '').substring(0, 10);
+        return (!from || d >= from) && (!to || d <= to);
+      })
+      .forEach(inv => {
+        rows.push([
+          inv.date || '',
+          inv.id || '',
+          inv.subtotal || 0,
+          inv.tax || 0,
+          inv.total || 0,
+          inv.paymentMethod || '',
+          allBranches[inv.branchId]?.name || ''
+        ]);
+      });
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `تقارير-${new Date().toISOString().substring(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('تم تصدير البيانات بنجاح', 'success');
+  } catch(e) {
+    showToast('خطأ: ' + e.message, 'error');
+  }
+};
+
+window.exportInvoicesCSV = function() {
+  try {
+    const from = document.getElementById('inv-from')?.value || '';
+    const to = document.getElementById('inv-to')?.value || '';
+
+    const headers = ['التاريخ', 'رقم الفاتورة', 'العميل', 'المبلغ', 'الضريبة', 'الإجمالي', 'طريقة الدفع'];
+    const rows = [];
+
+    Object.values(allInvoices)
+      .filter(inv => {
+        const d = (inv.date || '').substring(0, 10);
+        return (!from || d >= from) && (!to || d <= to);
+      })
+      .forEach(inv => {
+        rows.push([
+          inv.date || '',
+          inv.id || '',
+          inv.customerName || '',
+          inv.subtotal || 0,
+          inv.tax || 0,
+          inv.total || 0,
+          inv.paymentMethod || ''
+        ]);
+      });
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `الفواتير-${new Date().toISOString().substring(0,10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('تم تصدير الفواتير بنجاح', 'success');
+  } catch(e) {
+    showToast('خطأ: ' + e.message, 'error');
+  }
+};
 
 // ── Init Dates ──────────────────────────────────────────────────
 (function initDates() {
