@@ -410,18 +410,28 @@ function onProducts(snap) {
   renderProducts();
 }
 
-let productFilter = '';
 function renderProducts() {
   const el = document.getElementById('products-list');
   let entries = Object.entries(allProducts);
-  if (productFilter) {
-    const q = productFilter.toLowerCase();
+
+  // Apply text filter
+  if (productFilterText) {
     entries = entries.filter(([,p]) =>
-      p.name?.toLowerCase().includes(q) ||
-      p.barcode?.toLowerCase().includes(q) ||
-      p.category?.toLowerCase().includes(q));
+      p.name?.toLowerCase().includes(productFilterText) ||
+      p.barcode?.toLowerCase().includes(productFilterText) ||
+      p.category?.toLowerCase().includes(productFilterText));
   }
-  if (!entries.length) { el.innerHTML = emptyState('📦', 'لا توجد منتجات'); return; }
+
+  // Apply category filter
+  if (productCategoryFilter) {
+    entries = entries.filter(([,p]) => p.category === productCategoryFilter);
+  }
+
+  if (!entries.length) {
+    el.innerHTML = emptyState('📦', 'لا توجد منتجات');
+    return;
+  }
+
   el.innerHTML = entries.map(([id, p]) => `
     <div class="card-item" onclick="openEditProduct('${id}')">
       <div class="card-icon">📦</div>
@@ -440,11 +450,6 @@ function renderProducts() {
         </span>
       </div>
     </div>`).join('');
-}
-
-window.filterProducts = function() {
-  productFilter = document.getElementById('product-search').value;
-  renderProducts();
 };
 
 window.openAddProduct = function() {
@@ -1087,6 +1092,11 @@ window.switchTab = function(name) {
 
   // إغلاق الـ sidebar في الموبايل
   document.getElementById('sidebar').classList.remove('open');
+
+  // تحديث ظهور البحث العام
+  if (typeof updateGlobalSearch === 'function') {
+    updateGlobalSearch();
+  }
 };
 
 window.toggleSidebar = function() {
@@ -1861,6 +1871,102 @@ window.exportInvoicesCSV = function() {
     showToast('خطأ: ' + e.message, 'error');
   }
 };
+
+// ── Search & Filter Functions ──────────────────────────────────
+let productFilterText = '';
+let productCategoryFilter = '';
+
+window.filterProducts = function() {
+  productFilterText = (document.getElementById('product-search')?.value || '').toLowerCase();
+  productCategoryFilter = document.getElementById('product-category-filter')?.value || '';
+  renderProducts();
+};
+
+window.filterEmployees = function() {
+  const searchText = (document.getElementById('employee-search')?.value || '').toLowerCase();
+  const el = document.getElementById('employees-list');
+  if (!el) return;
+
+  const filtered = Object.entries(allEmployees)
+    .filter(([,emp]) => {
+      const name = (emp.name || '').toLowerCase();
+      const phone = (emp.phone || '').toLowerCase();
+      const empNo = (emp.employeeNumber || '').toLowerCase();
+      return name.includes(searchText) || phone.includes(searchText) || empNo.includes(searchText);
+    });
+
+  if (!filtered.length) {
+    el.innerHTML = emptyState('👤', 'لا توجد نتائج بحث');
+    return;
+  }
+
+  el.innerHTML = filtered.map(([id, emp]) => `
+    <div class="card-item" onclick="editEmployee('${id}')">
+      <div class="card-icon">👤</div>
+      <div class="card-info">
+        <div class="card-title">${escapeHtml(emp.name || '—')}</div>
+        <div class="card-sub">${emp.employeeNumber || '—'} · ${emp.phone || '—'}</div>
+      </div>
+      <div class="card-badge">${emp.position || '—'}</div>
+    </div>`).join('');
+};
+
+window.doGlobalSearch = function() {
+  const searchText = (document.getElementById('global-search')?.value || '').toLowerCase();
+  if (!searchText) return;
+
+  // Search in invoices
+  const invoiceMatches = Object.entries(allInvoices)
+    .filter(([,inv]) => {
+      const num = (inv.number || '').toLowerCase();
+      const cust = (inv.customerName || '').toLowerCase();
+      return num.includes(searchText) || cust.includes(searchText);
+    })
+    .slice(0, 5);
+
+  // Search in products
+  const productMatches = Object.entries(allProducts)
+    .filter(([,prod]) => {
+      const name = (prod.name || '').toLowerCase();
+      return name.includes(searchText);
+    })
+    .slice(0, 5);
+
+  // Search in employees
+  const employeeMatches = Object.entries(allEmployees)
+    .filter(([,emp]) => {
+      const name = (emp.name || '').toLowerCase();
+      return name.includes(searchText);
+    })
+    .slice(0, 5);
+
+  // If matches found, navigate to relevant tab and highlight results
+  if (invoiceMatches.length > 0) {
+    switchTab('invoices');
+    showToast(`وجدنا ${invoiceMatches.length} فاتورة`, 'info');
+  } else if (productMatches.length > 0) {
+    switchTab('products');
+    showToast(`وجدنا ${productMatches.length} منتج`, 'info');
+  } else if (employeeMatches.length > 0) {
+    switchTab('employees');
+    showToast(`وجدنا ${employeeMatches.length} موظف`, 'info');
+  } else {
+    showToast('لم نجد نتائج', 'warning');
+  }
+};
+
+// Show/hide global search when changing tabs
+function updateGlobalSearch() {
+  const searchInput = document.getElementById('global-search');
+  if (!searchInput) return;
+
+  const currentTab = document.querySelector('.tab-content.active');
+  const currentTabId = currentTab?.id || '';
+
+  // Show search for searchable tabs
+  const searchableTabs = ['tab-invoices', 'tab-products', 'tab-employees', 'tab-loyalty'];
+  searchInput.style.display = searchableTabs.includes(currentTabId) ? 'block' : 'none';
+}
 
 // ── Init Dates ──────────────────────────────────────────────────
 (function initDates() {

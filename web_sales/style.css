@@ -527,3 +527,34 @@ body {
   .kpi-grid { grid-template-columns: 1fr; }
   .tab-content { padding: 16px; }
 }
+
+/* ── Search Bar ──────────────────────────────── */
+.search-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.search-bar input,
+.search-bar select {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.search-bar input:focus,
+.search-bar select:focus {
+  outline: none;
+  border-color: var(--blue2);
+  box-shadow: 0 0 0 3px rgba(5, 117, 230, 0.1);
+}
+.search-bar input {
+  flex: 1;
+  min-width: 200px;
+  background: white;
+}
+.search-bar input::placeholder {
+  color: #94a3b8;
+}

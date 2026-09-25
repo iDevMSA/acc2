@@ -141,6 +141,9 @@
         <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
       </button>
       <div class="topbar-title" id="page-title">الرئيسية</div>
+      <div style="flex:1;display:flex;justify-content:center;padding:0 20px" id="global-search-container">
+        <input type="text" id="global-search" placeholder="🔍 بحث عام..." style="width:300px;max-width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-family:Cairo,sans-serif;display:none" oninput="doGlobalSearch()" />
+      </div>
       <div class="topbar-actions">
         <div class="realtime-badge">
           <span class="dot-live"></span>
@@ -203,6 +206,22 @@
         <button class="btn-primary btn-sm" onclick="openAddProduct()">+ إضافة منتج</button>
       </div>
       <div class="search-bar">
+        <input type="text" id="product-search" placeholder="🔍 بحث باسم المنتج أو الكود..." oninput="filterProducts()" />
+        <select id="product-category-filter" onchange="filterProducts()" style="margin-right:10px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-family:Cairo,sans-serif">
+          <option value="">الكل</option>
+          <option value="الأجهزة">الأجهزة</option>
+          <option value="الملابس">الملابس</option>
+          <option value="الأغذية">الأغذية</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </div>
+      <div id="products-list" class="card-list"></div>
+    </section>
+      <div class="section-header">
+        <div class="section-title">المنتجات</div>
+        <button class="btn-primary btn-sm" onclick="openAddProduct()">+ إضافة منتج</button>
+      </div>
+      <div class="search-bar">
         <input type="text" id="product-search" placeholder="🔍  بحث عن منتج..." oninput="filterProducts()" />
       </div>
       <div id="products-list" class="card-list"></div>
@@ -213,6 +232,9 @@
       <div class="section-header">
         <div class="section-title">الموظفون</div>
         <button class="btn-primary btn-sm" onclick="openAddEmployee()">+ إضافة موظف</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="employee-search" placeholder="🔍 بحث باسم الموظف أو الرقم..." oninput="filterEmployees()" />
       </div>
       <div id="employees-list" class="card-list"></div>
     </section>
