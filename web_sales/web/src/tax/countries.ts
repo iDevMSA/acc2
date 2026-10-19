@@ -80,19 +80,22 @@ export const TAX_COUNTRIES: TaxCountry[] = [
     trnLabel: 'الرقم المالي', authority: 'وزارة المالية', filing: 'quarterly', eInvoicing: 'none',
   },
   {
-    code: 'MA', name: 'المغرب', currency: 'MAD',
-    taxName: 'الضريبة على القيمة المضافة', standardRate: 20, reducedRates: [14, 10, 7, 0], hasVat: true,
-    trnLabel: 'المعرّف الضريبي (IF)', authority: 'المديرية العامة للضرائب', filing: 'monthly', eInvoicing: 'none',
+    code: 'PS', name: 'فلسطين', currency: 'ILS',
+    taxName: 'ضريبة القيمة المضافة', standardRate: 16, reducedRates: [0], hasVat: true,
+    trnLabel: 'رقم المشتغل المرخص',
+    authority: 'وزارة المالية — دائرة ضريبة القيمة المضافة', filing: 'monthly', eInvoicing: 'none',
   },
   {
-    code: 'TN', name: 'تونس', currency: 'TND',
-    taxName: 'الأداء على القيمة المضافة', standardRate: 19, reducedRates: [13, 7, 0], hasVat: true,
-    trnLabel: 'المعرّف الجبائي', authority: 'الإدارة العامة للأداءات', filing: 'monthly', eInvoicing: 'none',
+    code: 'YE', name: 'اليمن', currency: 'YER',
+    taxName: 'الضريبة العامة على المبيعات', standardRate: 5, reducedRates: [0], hasVat: true,
+    trnLabel: 'الرقم الضريبي', authority: 'مصلحة الضرائب', filing: 'monthly', eInvoicing: 'none',
+    notes: 'بعض السلع تخضع لمعدلات أعلى؛ اضبط نسبة كل منتج حسب نوعه.',
   },
   {
-    code: 'DZ', name: 'الجزائر', currency: 'DZD',
-    taxName: 'الرسم على القيمة المضافة', standardRate: 19, reducedRates: [9, 0], hasVat: true,
-    trnLabel: 'رقم التعريف الجبائي (NIF)', authority: 'المديرية العامة للضرائب', filing: 'monthly', eInvoicing: 'none',
+    code: 'SY', name: 'سوريا', currency: 'SYP',
+    taxName: 'ضريبة الإنفاق الاستهلاكي', standardRate: 0, reducedRates: [], hasVat: false,
+    trnLabel: 'الرقم الضريبي', authority: 'الهيئة العامة للضرائب والرسوم', filing: 'none', eInvoicing: 'none',
+    notes: 'لا توجد ضريبة قيمة مضافة؛ ضريبة الإنفاق الاستهلاكي تُفرض على سلع وخدمات محددة.',
   },
 ];
 

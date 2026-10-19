@@ -1,4 +1,4 @@
-import { findTaxCountry } from './countries';
+import { TAX_COUNTRIES, findTaxCountry } from './countries';
 import { buildTaxReport, computeInvoiceTax, validateTrn, zatcaQrBase64 } from './taxEngine';
 
 const SA = findTaxCountry('SA')!;
@@ -65,4 +65,10 @@ test('zatcaQrBase64 encodes TLV fields', () => {
   const bytes = Buffer.from(qr, 'base64');
   expect(bytes[0]).toBe(1);
   expect(bytes[1]).toBe('Bobs Records'.length);
+});
+
+test('country list matches the countries chosen for the ERP', () => {
+  expect(TAX_COUNTRIES.map((c) => c.code).sort()).toEqual(
+    ['AE', 'BH', 'EG', 'IQ', 'JO', 'KW', 'LB', 'OM', 'PS', 'QA', 'SA', 'SY', 'YE'],
+  );
 });
