@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { db } from '../config/firebase';
 import { ref, onValue } from 'firebase/database';
 import { useApp } from '../context/AppContext';
+import { Badge, Card, CardHeader, EmptyState, PageHeader, StatCard } from '../components/ui/primitives';
+import DataTable, { Column } from '../components/ui/DataTable';
+import { formatDate, formatNumber, toDate } from '../lib/format';
+import { calculateBalanceSheet, calculateIncomeStatement } from '../lib/statements';
 
 const Accounting: React.FC = () => {
-  const { user } = useApp();
+  const { user, currency } = useApp();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [journal, setJournal] = useState<any[]>([]);
 
@@ -13,7 +17,7 @@ const Accounting: React.FC = () => {
 
     // تحميل الحسابات
     const accountsRef = ref(db, `users/${user.uid}/accounts`);
-    onValue(accountsRef, (snapshot) => {
+    const unsubAccounts = onValue(accountsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setAccounts(Object.values(data as any));
@@ -22,102 +26,104 @@ const Accounting: React.FC = () => {
 
     // تحميل السجل العام
     const journalRef = ref(db, `users/${user.uid}/journal_entries`);
-    onValue(journalRef, (snapshot) => {
+    const unsubJournal = onValue(journalRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setJournal(Object.values(data as any));
       }
     });
+
+    return () => {
+      unsubAccounts();
+      unsubJournal();
+    };
   }, [user]);
 
-  return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">المحاسبة</h1>
+  const summary = useMemo(() => {
+    const bs = calculateBalanceSheet(journal);
+    const is = calculateIncomeStatement(journal);
+    return { assets: bs.assets, liabilities: bs.liabilities, revenue: is.revenue, expenses: is.expenses };
+  }, [journal]);
 
-      {/* دليل الحسابات */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">دليل الحسابات</h2>
-          <div className="space-y-2">
+  const totals = useMemo(
+    () => ({
+      debit: journal.reduce((s, e) => s + (e.debit || 0), 0),
+      credit: journal.reduce((s, e) => s + (e.credit || 0), 0),
+    }),
+    [journal]
+  );
+
+  const journalColumns: Array<Column<any>> = [
+    {
+      key: 'date',
+      header: 'التاريخ',
+      className: 'w-40',
+      render: (e) => <span className="text-ink-muted">{toDate(e.date) ? formatDate(e.date) : e.date || '—'}</span>,
+    },
+    { key: 'statement', header: 'البيان', render: (e) => e.statement || '—' },
+    { key: 'account', header: 'الحساب', render: (e) => (e.account ? <Badge>{e.account}</Badge> : '—') },
+    { key: 'debit', header: 'مدين', numeric: true, className: 'w-36', render: (e) => (e.debit ? formatNumber(e.debit) : '—') },
+    { key: 'credit', header: 'دائن', numeric: true, className: 'w-36', render: (e) => (e.credit ? formatNumber(e.credit) : '—') },
+  ];
+
+  return (
+    <>
+      <PageHeader title="المحاسبة" description="دليل الحسابات والسجل العام للقيود" />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="الأصول" value={formatNumber(summary.assets)} unit={currency} icon="building" tone="brand" />
+        <StatCard label="الخصوم" value={formatNumber(summary.liabilities)} unit={currency} icon="scale" tone="warning" />
+        <StatCard label="الإيرادات" value={formatNumber(summary.revenue)} unit={currency} icon="trendUp" tone="success" />
+        <StatCard label="المصروفات" value={formatNumber(summary.expenses)} unit={currency} icon="coins" tone="danger" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        {/* دليل الحسابات */}
+        <Card className="flex max-h-[640px] flex-col overflow-hidden">
+          <CardHeader title="دليل الحسابات" subtitle={`${formatNumber(accounts.length, 0)} حساب`} />
+          <div className="flex-1 overflow-y-auto">
             {accounts.length > 0 ? (
-              accounts.map((acc, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 border rounded hover:bg-gray-50">
-                  <span className="text-gray-900 font-medium">{acc.name || acc.code}</span>
-                  <span className="text-sm text-gray-600">{acc.category || 'حساب عام'}</span>
-                </div>
-              ))
+              <ul className="divide-y divide-line">
+                {accounts.map((acc, idx) => (
+                  <li key={idx} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">{acc.name || acc.code}</p>
+                      {acc.code && acc.name && <p className="num text-xs text-ink-subtle">{acc.code}</p>}
+                    </div>
+                    <Badge tone="neutral">{acc.category || 'حساب عام'}</Badge>
+                  </li>
+                ))}
+              </ul>
             ) : (
-              <p className="text-gray-500 text-center py-4">لا توجد حسابات</p>
+              <EmptyState icon="ledger" title="لا توجد حسابات" description="أضف الحسابات من التطبيق لتظهر هنا." />
             )}
           </div>
-        </div>
+        </Card>
 
-        {/* ملخص الأرصدة */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">ملخص الأرصدة</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-blue-50 rounded">
-              <div className="text-2xl font-bold text-blue-600">0</div>
-              <div className="text-sm text-gray-600">أصول</div>
-            </div>
-            <div className="p-4 bg-green-50 rounded">
-              <div className="text-2xl font-bold text-green-600">0</div>
-              <div className="text-sm text-gray-600">خصوم</div>
-            </div>
-            <div className="p-4 bg-purple-50 rounded">
-              <div className="text-2xl font-bold text-purple-600">0</div>
-              <div className="text-sm text-gray-600">إيرادات</div>
-            </div>
-            <div className="p-4 bg-red-50 rounded">
-              <div className="text-2xl font-bold text-red-600">0</div>
-              <div className="text-sm text-gray-600">مصروفات</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* السجل العام */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">السجل العام</h2>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+        {/* السجل العام */}
+        <Card className="overflow-hidden">
+          <CardHeader title="السجل العام" subtitle={`${formatNumber(journal.length, 0)} قيد`} />
+          <DataTable
+            columns={journalColumns}
+            rows={journal}
+            rowKey={(_, i) => String(i)}
+            maxHeight="560px"
+            empty={{ title: 'لا توجد قيود', description: 'ستظهر القيود المحاسبية هنا عند تسجيلها.', icon: 'ledger' }}
+            footer={
               <tr>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">التاريخ</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">الوصف</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">مدين</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">دائن</th>
+                <td colSpan={3}>الإجمالي</td>
+                <td className="text-end">
+                  <span className="num">{formatNumber(totals.debit)}</span>
+                </td>
+                <td className="text-end">
+                  <span className="num">{formatNumber(totals.credit)}</span>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {journal.length > 0 ? (
-                journal.map((entry, idx) => (
-                  <tr key={idx} className="border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-600">{entry.date || '—'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{entry.statement || '—'}</td>
-                    <td className="px-6 py-4 text-sm text-right font-mono text-gray-900">
-                      {entry.debit ? entry.debit.toFixed(2) : '—'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right font-mono text-gray-900">
-                      {entry.credit ? entry.credit.toFixed(2) : '—'}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                    لا توجد قيود
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            }
+          />
+        </Card>
       </div>
-    </div>
+    </>
   );
 };
 

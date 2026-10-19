@@ -1,128 +1,165 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../config/firebase';
 import { ref, onValue } from 'firebase/database';
 import { useApp } from '../context/AppContext';
+import { Badge, Card, CardHeader, PageHeader, StatCard } from '../components/ui/primitives';
+import DataTable, { Column } from '../components/ui/DataTable';
+import Icon from '../components/ui/Icon';
+import { formatDate, formatMoney, formatNumber, formatTime, toDate } from '../lib/format';
+
+const startOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+const invoiceDate = (inv: any) => toDate(inv.createdAt || inv.date);
 
 const Dashboard: React.FC = () => {
   const { user, currency } = useApp();
-  const [kpis, setKpis] = useState({
-    revenue: 0,
-    invoices: 0,
-    branches: 0,
-    registers: 0,
-  });
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [closedInvoices, setClosedInvoices] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
 
     // تحميل الفواتير
     const invoicesRef = ref(db, `sales/${user.uid}/invoices`);
-    onValue(invoicesRef, (snapshot) => {
+    return onValue(invoicesRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const allInvoices = Object.entries(data).map(([id, inv]: any) => ({
           id,
           ...inv,
         }));
-
-        // حساب KPIs
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const todayInvoices = allInvoices.filter((inv) => {
-          const invDate = new Date(inv.createdAt || inv.date || '');
-          invDate.setHours(0, 0, 0, 0);
-          return invDate.getTime() === today.getTime() && inv.status === 'closed';
-        });
-
-        const revenue = todayInvoices.reduce((sum: number, inv: any) => sum + (inv.total || 0), 0);
-
-        setKpis({
-          revenue,
-          invoices: todayInvoices.length,
-          branches: 0,
-          registers: 0,
-        });
-
-        setInvoices(todayInvoices.sort((a, b) => 
-          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-        ).slice(0, 8));
+        setClosedInvoices(allInvoices.filter((inv) => inv.status === 'closed'));
       }
     });
   }, [user]);
 
+  const { kpis, recent, week } = useMemo(() => {
+    const today = startOfDay(new Date()).getTime();
+
+    const todayInvoices = closedInvoices.filter((inv) => {
+      const d = invoiceDate(inv);
+      return d !== null && startOfDay(d).getTime() === today;
+    });
+
+    const revenue = todayInvoices.reduce((sum: number, inv: any) => sum + (inv.total || 0), 0);
+    const largest = todayInvoices.reduce((max: number, inv: any) => Math.max(max, inv.total || 0), 0);
+
+    // إيرادات آخر 7 أيام (من الفواتير المغلقة نفسها)
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (6 - i));
+      return { date: d, total: 0, count: 0 };
+    });
+    closedInvoices.forEach((inv) => {
+      const d = invoiceDate(inv);
+      if (!d) return;
+      const slot = days.find((day) => day.date.getTime() === startOfDay(d).getTime());
+      if (slot) {
+        slot.total += inv.total || 0;
+        slot.count += 1;
+      }
+    });
+
+    return {
+      kpis: {
+        revenue,
+        invoices: todayInvoices.length,
+        average: todayInvoices.length ? revenue / todayInvoices.length : 0,
+        largest,
+      },
+      recent: [...todayInvoices]
+        .sort((a, b) => (invoiceDate(b)?.getTime() || 0) - (invoiceDate(a)?.getTime() || 0))
+        .slice(0, 8),
+      week: days,
+    };
+  }, [closedInvoices]);
+
+  const weekTotal = week.reduce((s, d) => s + d.total, 0);
+  const weekMax = Math.max(...week.map((d) => d.total), 1);
+
+  const columns: Array<Column<any>> = [
+    {
+      key: 'number',
+      header: 'رقم الفاتورة',
+      render: (inv) => <span className="num font-medium text-brand-700">#{inv.number || inv.id}</span>,
+    },
+    { key: 'customer', header: 'العميل', render: (inv) => inv.customerName || <span className="text-ink-faint">عميل نقدي</span> },
+    { key: 'time', header: 'الوقت', render: (inv) => <span className="text-ink-muted">{formatTime(inv.createdAt || inv.date)}</span> },
+    { key: 'status', header: 'الحالة', render: () => <Badge tone="success">مغلقة</Badge> },
+    { key: 'total', header: 'المبلغ', numeric: true, render: (inv) => formatMoney(inv.total, currency) },
+  ];
+
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">لوحة التحكم</h1>
+    <>
+      <PageHeader title="لوحة التحكم" description="ملخص أداء المبيعات اليوم وآخر سبعة أيام" />
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-blue-50 border-l-4 border-blue-600 p-6 rounded">
-          <div className="text-3xl font-bold text-blue-600">
-            {kpis.revenue.toFixed(2)}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="إيرادات اليوم" value={formatNumber(kpis.revenue)} unit={currency} icon="wallet" tone="brand" />
+        <StatCard label="فواتير اليوم" value={formatNumber(kpis.invoices, 0)} unit="فاتورة" icon="receipt" tone="info" />
+        <StatCard label="متوسط قيمة الفاتورة" value={formatNumber(kpis.average)} unit={currency} icon="trendUp" tone="success" />
+        <StatCard label="أعلى فاتورة اليوم" value={formatNumber(kpis.largest)} unit={currency} icon="sparkle" tone="warning" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {/* إيرادات الأسبوع */}
+        <Card className="xl:col-span-1">
+          <CardHeader title="إيرادات آخر 7 أيام" subtitle="الفواتير المغلقة فقط" />
+          <div className="px-5 pb-5 pt-4">
+            <p className="text-xs text-ink-subtle">الإجمالي</p>
+            <p className="mt-1 flex items-baseline gap-1.5">
+              <span className="num text-2xl font-semibold text-ink">{formatNumber(weekTotal)}</span>
+              <span className="text-xs text-ink-subtle">{currency}</span>
+            </p>
+            <div className="mt-6 flex items-end gap-2" dir="ltr">
+              {week.map((d) => {
+                const isToday = d === week[week.length - 1];
+                return (
+                  <div key={d.date.toISOString()} className="group flex flex-1 flex-col items-center gap-2">
+                    <div className="flex h-56 w-full items-end">
+                      <div
+                        className={`w-full rounded-t-md transition ${isToday ? 'bg-brand-600' : 'bg-brand-200 group-hover:bg-brand-300'}`}
+                        style={{ height: `${Math.max((d.total / weekMax) * 100, d.total > 0 ? 4 : 1.5)}%` }}
+                        title={`${formatDate(d.date)} · ${formatMoney(d.total, currency)} · ${d.count} فاتورة`}
+                      />
+                    </div>
+                    <span className={`text-[11px] ${isToday ? 'font-semibold text-ink' : 'text-ink-subtle'}`}>
+                      {isToday ? 'اليوم' : formatDate(d.date, { weekday: 'short' })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="text-gray-600 text-sm mt-2">إيرادات اليوم ({currency})</div>
-        </div>
+        </Card>
 
-        <div className="bg-green-50 border-l-4 border-green-600 p-6 rounded">
-          <div className="text-3xl font-bold text-green-600">{kpis.invoices}</div>
-          <div className="text-gray-600 text-sm mt-2">فواتير اليوم</div>
-        </div>
-
-        <div className="bg-purple-50 border-l-4 border-purple-600 p-6 rounded">
-          <div className="text-3xl font-bold text-purple-600">0</div>
-          <div className="text-gray-600 text-sm mt-2">الفروع</div>
-        </div>
-
-        <div className="bg-orange-50 border-l-4 border-orange-600 p-6 rounded">
-          <div className="text-3xl font-bold text-orange-600">0</div>
-          <div className="text-gray-600 text-sm mt-2">الصناديق المفتوحة</div>
-        </div>
+        {/* آخر الفواتير */}
+        <Card className="overflow-hidden xl:col-span-2">
+          <CardHeader
+            title="آخر فواتير اليوم"
+            subtitle="أحدث 8 فواتير مغلقة"
+            actions={
+              <Link
+                to="/invoices"
+                className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700"
+              >
+                كل الفواتير
+                <Icon name="chevronLeft" size={14} />
+              </Link>
+            }
+          />
+          <DataTable
+            columns={columns}
+            rows={recent}
+            rowKey={(inv) => inv.id}
+            empty={{ title: 'لا توجد فواتير اليوم', description: 'ستظهر هنا الفواتير المغلقة من نقاط البيع فور مزامنتها.', icon: 'receipt' }}
+          />
+        </Card>
       </div>
-
-      {/* آخر الفواتير */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">آخر الفواتير</h2>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">الرقم</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">العميل</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">المبلغ</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">التاريخ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.length > 0 ? (
-                invoices.map((inv) => (
-                  <tr key={inv.id} className="border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">{inv.number || inv.id}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{inv.customerName || '—'}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      {inv.total?.toFixed(2)} {currency}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(inv.createdAt || inv.date || '').toLocaleDateString('ar-SA')}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                    لا توجد فواتير اليوم
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
 
