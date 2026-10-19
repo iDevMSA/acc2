@@ -13,6 +13,7 @@ import Vouchers from './pages/Vouchers';
 import Warehouses from './pages/Warehouses';
 import Cheques from './pages/Cheques';
 import Hub from './pages/Hub';
+import Settings from './pages/Settings';
 import Reports from './pages/Reports';
 import { BrandMark } from './components/Sidebar';
 import AppShell from './components/layout/AppShell';
@@ -45,6 +46,7 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 const PAGES: Array<[string, React.ReactNode]> = [
   ['/', <Dashboard />],
   ['/hub', <Hub />],
+  ['/settings', <Settings />],
   ['/accounts', <Accounts />],
   ['/accounts/:id', <AccountDetail />],
   ['/accounting', <Accounting />],

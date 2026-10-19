@@ -53,6 +53,9 @@ interface LedgerContextType {
   accounts: Account[];
   accountsById: Record<string, Account>;
   operations: Operation[];
+  /** قيود في السحابة لحسابات محذوفة (لا تدخل في الأرصدة) */
+  orphanOperations: Operation[];
+  saveCompany: (c: CompanyInfo) => Promise<void>;
   opsByAccount: Record<string, Operation[]>;
   balances: Record<string, AccountBalance>;
   company: CompanyInfo;
@@ -137,10 +140,19 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [accountsRaw],
   );
   const accountsById = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a])), [accounts]);
-  const operations = useMemo(
+  const allOperations = useMemo(
     () => objToList(opsRaw, parseOperation).sort((a, b) => a.date.localeCompare(b.date)),
     [opsRaw],
   );
+  // الهاتف عند حذف حساب يحذف قيوده محلياً فقط وتبقى في السحابة (DataService.deleteAccount)،
+  // فلا يحسبها في رصيده. نتجاهلها هنا أيضاً حتى يطابق الرصيد الهاتف، ونعرضها في الإعدادات للتنظيف.
+  const { operations, orphanOperations } = useMemo(() => {
+    if (accountsRaw === undefined) return { operations: allOperations, orphanOperations: [] as Operation[] };
+    const ok: Operation[] = [];
+    const orphan: Operation[] = [];
+    allOperations.forEach((o) => (accountsById[o.accountId] ? ok : orphan).push(o));
+    return { operations: ok, orphanOperations: orphan };
+  }, [allOperations, accountsById, accountsRaw]);
   const opsByAccount = useMemo(() => {
     const m: Record<string, Operation[]> = {};
     operations.forEach((o) => (m[o.accountId] ??= []).push(o));
@@ -342,6 +354,15 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return saveAccount({ name, category, type }, role);
     },
     [accounts, saveAccount],
+  );
+
+  // نفس شكل CompanyInfo.toJson — الهاتف يقرأها عبر syncCompanyFromCloud
+  const saveCompany = useCallback<LedgerContextType['saveCompany']>(
+    (c) =>
+      write({
+        companyInfo: { name: c.name.trim(), phone: c.phone.trim(), address: c.address.trim(), email: c.email.trim() },
+      }),
+    [write],
   );
 
   const saveSettings = useCallback<LedgerContextType['saveSettings']>(
@@ -557,6 +578,8 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     accounts,
     accountsById,
     operations,
+    orphanOperations,
+    saveCompany,
     opsByAccount,
     balances,
     company,

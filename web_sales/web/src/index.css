@@ -3,6 +3,15 @@
 @tailwind utilities;
 
 @layer base {
+  /* إخفاء أشرطة التمرير في كل المنصة مع إبقاء التمرير يعمل (عجلة الفأرة واللمس ولوحة المفاتيح) */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
   html {
     @apply bg-canvas text-ink antialiased;
     font-feature-settings: 'tnum' 1;
