@@ -32,12 +32,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           email: currentUser.email || undefined,
         });
 
-        // تحميل بيانات الشركة
-        watchValue(`users/${currentUser.uid}/settings`, (data) => {
-          if (data) {
-            setCompanyInfo(data);
-            setCurrency(data.currency || 'SAR');
-          }
+        // بيانات الشركة كما يكتبها التطبيق (CompanyInfo) وعملة نقاط البيع من إعدادات المبيعات
+        watchValue(`users/${currentUser.uid}/companyInfo`, (data) => {
+          if (data) setCompanyInfo(data);
+        });
+        watchValue(`sales/${currentUser.uid}/settings/currency`, (value) => {
+          if (typeof value === 'string' && value) setCurrency(value);
         });
       } else {
         setUser(null);

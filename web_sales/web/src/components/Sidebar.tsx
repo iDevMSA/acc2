@@ -96,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed: collapsedPref, onToggle, m
                   <li key={item.path}>
                     <NavLink
                       to={item.path}
-                      end
+                      end={item.path === '/'}
                       title={collapsed ? item.label : undefined}
                       className={({ isActive }) =>
                         cx(

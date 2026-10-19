@@ -11,11 +11,11 @@ const BottomNav: React.FC = () => (
     className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
   >
     <ul className="flex">
-      {NAV_GROUPS.flatMap((g) => g.items).map((item) => (
+      {NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.mobile).map((item) => (
         <li key={item.path} className="flex-1">
           <NavLink
             to={item.path}
-            end
+            end={item.path === '/'}
             className={({ isActive }) =>
               cx(
                 'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition',

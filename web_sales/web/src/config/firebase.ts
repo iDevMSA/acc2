@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectDatabaseEmulator, getDatabase } from 'firebase/database';
 
 // نفس الـ config من web_sales
 const firebaseConfig = {
@@ -16,3 +16,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
+
+// للتطوير فقط: REACT_APP_FIREBASE_EMULATOR=1 يوجّه المنصة إلى محاكيات Firebase المحلية
+// (firebase emulators:start --only auth,database) بدل البيانات الحقيقية.
+if (process.env.REACT_APP_FIREBASE_EMULATOR === '1') {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectDatabaseEmulator(db, '127.0.0.1', 9000);
+}

@@ -5,6 +5,8 @@ export interface NavItem {
   label: string;
   icon: IconName;
   description: string;
+  /** يظهر في شريط التنقل السفلي على الهاتف */
+  mobile?: boolean;
 }
 
 export interface NavGroup {
@@ -16,20 +18,40 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'عام',
-    items: [{ path: '/', label: 'الرئيسية', icon: 'home', description: 'نظرة عامة على أداء اليوم' }],
-  },
-  {
-    label: 'المبيعات',
-    items: [{ path: '/invoices', label: 'الفواتير', icon: 'receipt', description: 'الفواتير وتحليل الربحية' }],
+    items: [
+      { path: '/', label: 'الرئيسية', icon: 'home', description: 'نظرة عامة على أداء اليوم', mobile: true },
+      { path: '/hub', label: 'الأقسام', icon: 'grid', description: 'كل النوافذ والأدوات مرتبة حسب القسم' },
+    ],
   },
   {
     label: 'المحاسبة',
     items: [
-      { path: '/accounting', label: 'المحاسبة', icon: 'ledger', description: 'دليل الحسابات والسجل العام' },
-      { path: '/reports', label: 'التقارير', icon: 'chart', description: 'القوائم المالية' },
+      { path: '/accounts', label: 'الحسابات', icon: 'ledger', description: 'دليل الحسابات وكشوفها', mobile: true },
+      { path: '/accounting', label: 'القيود', icon: 'receipt', description: 'سجل القيود العام' },
+      { path: '/reports', label: 'التقارير', icon: 'chart', description: 'مركز التقارير المالية', mobile: true },
+    ],
+  },
+  {
+    label: 'النقدية',
+    items: [
+      { path: '/cashboxes', label: 'الصناديق', icon: 'wallet', description: 'الصناديق وربطها بالحسابات', mobile: true },
+      { path: '/vouchers', label: 'القبض والصرف', icon: 'swap', description: 'سندات القبض والصرف والتحويل' },
+      { path: '/cheques', label: 'الشيكات', icon: 'cheque', description: 'الشيكات الواردة والصادرة' },
+    ],
+  },
+  {
+    label: 'المخزون والمبيعات',
+    items: [
+      { path: '/warehouses', label: 'المخازن', icon: 'warehouse', description: 'المخازن والأصناف وحركاتها' },
+      { path: '/invoices', label: 'فواتير البيع', icon: 'receipt', description: 'فواتير نقاط البيع وتحليل الربحية' },
     ],
   },
 ];
 
+const ALL = NAV_GROUPS.flatMap((g) => g.items);
+
+/** أطول مسار يطابق بداية الرابط (حتى تُعلَّم "الحسابات" في صفحة حساب محدد) */
 export const findNavItem = (pathname: string): NavItem | undefined =>
-  NAV_GROUPS.flatMap((g) => g.items).find((item) => item.path === pathname);
+  ALL.filter((i) => (i.path === '/' ? pathname === '/' : pathname === i.path || pathname.startsWith(`${i.path}/`))).sort(
+    (a, b) => b.path.length - a.path.length,
+  )[0];
