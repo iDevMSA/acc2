@@ -19,9 +19,10 @@ interface DataTableProps<T> {
   empty?: { title: string; description?: string; icon?: IconName };
   footer?: React.ReactNode;
   maxHeight?: string;
+  onRowClick?: (row: T) => void;
 }
 
-function DataTable<T>({ columns, rows, rowKey, loading, empty, footer, maxHeight }: DataTableProps<T>) {
+function DataTable<T>({ columns, rows, rowKey, loading, empty, footer, maxHeight, onRowClick }: DataTableProps<T>) {
   return (
     <div className="overflow-auto" style={maxHeight ? { maxHeight } : undefined}>
       <table className="table-base">
@@ -44,12 +45,20 @@ function DataTable<T>({ columns, rows, rowKey, loading, empty, footer, maxHeight
           ) : rows.length === 0 ? (
             <tr className="hover:bg-transparent">
               <td colSpan={columns.length} className="p-0">
-                <EmptyState title={empty?.title || 'لا توجد بيانات'} description={empty?.description} icon={empty?.icon} />
+                <EmptyState
+                  title={empty?.title || 'لا توجد بيانات'}
+                  description={empty?.description}
+                  icon={empty?.icon}
+                />
               </td>
             </tr>
           ) : (
             rows.map((row, i) => (
-              <tr key={rowKey(row, i)}>
+              <tr
+                key={rowKey(row, i)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={onRowClick ? 'cursor-pointer' : undefined}
+              >
                 {columns.map((col) => (
                   <td key={col.key} className={cx(col.numeric && 'text-end font-medium', col.className)}>
                     {col.numeric ? <span className="num">{col.render(row, i)}</span> : col.render(row, i)}

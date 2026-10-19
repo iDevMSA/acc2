@@ -61,7 +61,11 @@ const LoginPage: React.FC = () => {
                 البريد الإلكتروني
               </label>
               <div className="relative">
-                <Icon name="mail" size={16} className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-ink-faint" />
+                <Icon
+                  name="mail"
+                  size={16}
+                  className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-ink-faint"
+                />
                 <input
                   id="email"
                   type="email"
@@ -80,7 +84,11 @@ const LoginPage: React.FC = () => {
                 كلمة المرور
               </label>
               <div className="relative">
-                <Icon name="lock" size={16} className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-ink-faint" />
+                <Icon
+                  name="lock"
+                  size={16}
+                  className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-ink-faint"
+                />
                 <input
                   id="password"
                   type="password"

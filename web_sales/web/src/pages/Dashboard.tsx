@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { db } from '../config/firebase';
-import { ref, onValue } from 'firebase/database';
 import { useApp } from '../context/AppContext';
 import { Badge, Card, CardHeader, PageHeader, StatCard } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
 import Icon from '../components/ui/Icon';
 import { formatDate, formatMoney, formatNumber, formatTime, toDate } from '../lib/format';
+import { SalesInvoice, invoiceTotal, useSalesInvoices } from '../lib/salesInvoices';
 
 const startOfDay = (d: Date) => {
   const x = new Date(d);
@@ -14,28 +13,13 @@ const startOfDay = (d: Date) => {
   return x;
 };
 
-const invoiceDate = (inv: any) => toDate(inv.createdAt || inv.date);
+const invoiceDate = (inv: SalesInvoice) => toDate(inv.createdAt || inv.date);
 
 const Dashboard: React.FC = () => {
   const { user, currency } = useApp();
-  const [closedInvoices, setClosedInvoices] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    // تحميل الفواتير
-    const invoicesRef = ref(db, `sales/${user.uid}/invoices`);
-    return onValue(invoicesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const allInvoices = Object.entries(data).map(([id, inv]: any) => ({
-          id,
-          ...inv,
-        }));
-        setClosedInvoices(allInvoices.filter((inv) => inv.status === 'closed'));
-      }
-    });
-  }, [user]);
+  const { invoices } = useSalesInvoices(user?.uid || null);
+  // التطبيق يعتبر الفاتورة بلا حالة "مغلقة"
+  const closedInvoices = useMemo(() => invoices.filter((inv) => (inv.status ?? 'closed') === 'closed'), [invoices]);
 
   const { kpis, recent, week } = useMemo(() => {
     const today = startOfDay(new Date()).getTime();
@@ -45,8 +29,8 @@ const Dashboard: React.FC = () => {
       return d !== null && startOfDay(d).getTime() === today;
     });
 
-    const revenue = todayInvoices.reduce((sum: number, inv: any) => sum + (inv.total || 0), 0);
-    const largest = todayInvoices.reduce((max: number, inv: any) => Math.max(max, inv.total || 0), 0);
+    const revenue = todayInvoices.reduce((sum, inv) => sum + invoiceTotal(inv), 0);
+    const largest = todayInvoices.reduce((max, inv) => Math.max(max, invoiceTotal(inv)), 0);
 
     // إيرادات آخر 7 أيام (من الفواتير المغلقة نفسها)
     const days = Array.from({ length: 7 }, (_, i) => {
@@ -59,7 +43,7 @@ const Dashboard: React.FC = () => {
       if (!d) return;
       const slot = days.find((day) => day.date.getTime() === startOfDay(d).getTime());
       if (slot) {
-        slot.total += inv.total || 0;
+        slot.total += invoiceTotal(inv);
         slot.count += 1;
       }
     });
@@ -81,27 +65,55 @@ const Dashboard: React.FC = () => {
   const weekTotal = week.reduce((s, d) => s + d.total, 0);
   const weekMax = Math.max(...week.map((d) => d.total), 1);
 
-  const columns: Array<Column<any>> = [
+  const columns: Array<Column<SalesInvoice>> = [
     {
       key: 'number',
       header: 'رقم الفاتورة',
-      render: (inv) => <span className="num font-medium text-brand-700">#{inv.number || inv.id}</span>,
+      render: (inv) => (
+        <span className="num whitespace-nowrap font-medium text-brand-700">#{inv.number || inv.id}</span>
+      ),
     },
-    { key: 'customer', header: 'العميل', render: (inv) => inv.customerName || <span className="text-ink-faint">عميل نقدي</span> },
-    { key: 'time', header: 'الوقت', render: (inv) => <span className="text-ink-muted">{formatTime(inv.createdAt || inv.date)}</span> },
+    {
+      key: 'customer',
+      header: 'العميل',
+      render: (inv) => inv.customerName || <span className="text-ink-faint">عميل نقدي</span>,
+    },
+    {
+      key: 'time',
+      header: 'الوقت',
+      render: (inv) => <span className="text-ink-muted">{formatTime(inv.createdAt || inv.date)}</span>,
+    },
     { key: 'status', header: 'الحالة', render: () => <Badge tone="success">مغلقة</Badge> },
-    { key: 'total', header: 'المبلغ', numeric: true, render: (inv) => formatMoney(inv.total, currency) },
+    { key: 'total', header: 'المبلغ', numeric: true, render: (inv) => formatMoney(invoiceTotal(inv), currency) },
   ];
 
   return (
     <>
       <PageHeader title="لوحة التحكم" description="ملخص أداء المبيعات اليوم وآخر سبعة أيام" />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="إيرادات اليوم" value={formatNumber(kpis.revenue)} unit={currency} icon="wallet" tone="brand" />
-        <StatCard label="فواتير اليوم" value={formatNumber(kpis.invoices, 0)} unit="فاتورة" icon="receipt" tone="info" />
-        <StatCard label="متوسط قيمة الفاتورة" value={formatNumber(kpis.average)} unit={currency} icon="trendUp" tone="success" />
-        <StatCard label="أعلى فاتورة اليوم" value={formatNumber(kpis.largest)} unit={currency} icon="sparkle" tone="warning" />
+        <StatCard
+          label="فواتير اليوم"
+          value={formatNumber(kpis.invoices, 0)}
+          unit="فاتورة"
+          icon="receipt"
+          tone="info"
+        />
+        <StatCard
+          label="متوسط قيمة الفاتورة"
+          value={formatNumber(kpis.average)}
+          unit={currency}
+          icon="trendUp"
+          tone="success"
+        />
+        <StatCard
+          label="أعلى فاتورة اليوم"
+          value={formatNumber(kpis.largest)}
+          unit={currency}
+          icon="sparkle"
+          tone="warning"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -155,7 +167,11 @@ const Dashboard: React.FC = () => {
             columns={columns}
             rows={recent}
             rowKey={(inv) => inv.id}
-            empty={{ title: 'لا توجد فواتير اليوم', description: 'ستظهر هنا الفواتير المغلقة من نقاط البيع فور مزامنتها.', icon: 'receipt' }}
+            empty={{
+              title: 'لا توجد فواتير اليوم',
+              description: 'ستظهر هنا الفواتير المغلقة من نقاط البيع فور مزامنتها.',
+              icon: 'receipt',
+            }}
           />
         </Card>
       </div>

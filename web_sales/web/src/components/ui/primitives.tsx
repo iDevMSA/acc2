@@ -20,7 +20,14 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: IconName;
 }
 
-export const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md', icon, className, children, ...rest }) => (
+export const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  size = 'md',
+  icon,
+  className,
+  children,
+  ...rest
+}) => (
   <button
     className={cx(
       'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-70',
@@ -28,7 +35,7 @@ export const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md'
       size === 'md' && 'h-10 px-4 text-sm',
       size === 'lg' && 'h-11 px-5 text-sm',
       buttonVariants[variant],
-      className
+      className,
     )}
     {...rest}
   >
@@ -101,17 +108,17 @@ interface StatCardProps {
 }
 
 export const StatCard: React.FC<StatCardProps> = ({ label, value, unit, hint, icon, tone = 'brand' }) => (
-  <Card className="p-5">
+  <Card className="p-4 sm:p-5">
     <div className="flex items-start justify-between gap-3">
       <p className="text-sm font-medium text-ink-subtle">{label}</p>
       {icon && (
-        <span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-lg ring-1', toneIcon[tone])}>
+        <span className={cx('hidden h-9 w-9 shrink-0 sm:grid place-items-center rounded-lg ring-1', toneIcon[tone])}>
           <Icon name={icon} size={18} />
         </span>
       )}
     </div>
     <div className="mt-3 flex items-baseline gap-1.5">
-      <span className="num text-[26px] font-semibold leading-none tracking-tight text-ink">{value}</span>
+      <span className="num text-xl sm:text-[26px] font-semibold leading-none tracking-tight text-ink">{value}</span>
       {unit && <span className="text-xs font-medium text-ink-subtle">{unit}</span>}
     </div>
     {hint && <p className="mt-2 text-xs text-ink-subtle">{hint}</p>}
@@ -138,7 +145,7 @@ export const Badge: React.FC<{ tone?: Tone; children: React.ReactNode; className
     className={cx(
       'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
       badgeTones[tone],
-      className
+      className,
     )}
   >
     {children}
@@ -166,7 +173,10 @@ export const EmptyState: React.FC<{ icon?: IconName; title: string; description?
 
 export const Spinner: React.FC<{ className?: string }> = ({ className }) => (
   <span
-    className={cx('inline-block h-5 w-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600', className)}
+    className={cx(
+      'inline-block h-5 w-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600',
+      className,
+    )}
     role="status"
     aria-label="جاري التحميل"
   />
@@ -182,7 +192,10 @@ interface TabsProps<T extends string> {
 
 export function Tabs<T extends string>({ value, onChange, items }: TabsProps<T>) {
   return (
-    <div role="tablist" className="inline-flex gap-1 rounded-xl border border-line bg-surface p-1 shadow-card">
+    <div
+      role="tablist"
+      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1 shadow-card"
+    >
       {items.map((item) => {
         const active = item.value === value;
         return (
@@ -192,8 +205,8 @@ export function Tabs<T extends string>({ value, onChange, items }: TabsProps<T>)
             aria-selected={active}
             onClick={() => onChange(item.value)}
             className={cx(
-              'inline-flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-medium transition',
-              active ? 'bg-brand-600 text-white shadow-sm' : 'text-ink-muted hover:bg-slate-100 hover:text-ink'
+              'inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-medium transition',
+              active ? 'bg-brand-600 text-white shadow-sm' : 'text-ink-muted hover:bg-slate-100 hover:text-ink',
             )}
           >
             {item.icon && <Icon name={item.icon} size={16} />}

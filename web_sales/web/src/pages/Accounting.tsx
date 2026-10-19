@@ -50,7 +50,7 @@ const Accounting: React.FC = () => {
       debit: journal.reduce((s, e) => s + (e.debit || 0), 0),
       credit: journal.reduce((s, e) => s + (e.credit || 0), 0),
     }),
-    [journal]
+    [journal],
   );
 
   const journalColumns: Array<Column<any>> = [
@@ -62,18 +62,42 @@ const Accounting: React.FC = () => {
     },
     { key: 'statement', header: 'البيان', render: (e) => e.statement || '—' },
     { key: 'account', header: 'الحساب', render: (e) => (e.account ? <Badge>{e.account}</Badge> : '—') },
-    { key: 'debit', header: 'مدين', numeric: true, className: 'w-36', render: (e) => (e.debit ? formatNumber(e.debit) : '—') },
-    { key: 'credit', header: 'دائن', numeric: true, className: 'w-36', render: (e) => (e.credit ? formatNumber(e.credit) : '—') },
+    {
+      key: 'debit',
+      header: 'مدين',
+      numeric: true,
+      className: 'w-36',
+      render: (e) => (e.debit ? formatNumber(e.debit) : '—'),
+    },
+    {
+      key: 'credit',
+      header: 'دائن',
+      numeric: true,
+      className: 'w-36',
+      render: (e) => (e.credit ? formatNumber(e.credit) : '—'),
+    },
   ];
 
   return (
     <>
       <PageHeader title="المحاسبة" description="دليل الحسابات والسجل العام للقيود" />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="الأصول" value={formatNumber(summary.assets)} unit={currency} icon="building" tone="brand" />
-        <StatCard label="الخصوم" value={formatNumber(summary.liabilities)} unit={currency} icon="scale" tone="warning" />
-        <StatCard label="الإيرادات" value={formatNumber(summary.revenue)} unit={currency} icon="trendUp" tone="success" />
+        <StatCard
+          label="الخصوم"
+          value={formatNumber(summary.liabilities)}
+          unit={currency}
+          icon="scale"
+          tone="warning"
+        />
+        <StatCard
+          label="الإيرادات"
+          value={formatNumber(summary.revenue)}
+          unit={currency}
+          icon="trendUp"
+          tone="success"
+        />
         <StatCard label="المصروفات" value={formatNumber(summary.expenses)} unit={currency} icon="coins" tone="danger" />
       </div>
 

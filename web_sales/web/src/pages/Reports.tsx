@@ -25,7 +25,7 @@ const StatementRow: React.FC<{ label: string; value: number; tone?: string; stro
   <div
     className={cx(
       'flex items-center justify-between px-5 py-3.5',
-      strong ? 'bg-slate-50 font-semibold' : 'border-b border-line'
+      strong ? 'bg-slate-50 font-semibold' : 'border-b border-line',
     )}
   >
     <span className={strong ? 'text-ink' : 'text-ink-muted'}>{label}</span>
@@ -109,7 +109,11 @@ const Reports: React.FC = () => {
             columns={tbColumns}
             rows={trialBalance}
             rowKey={(item) => item.account}
-            empty={{ title: 'لا توجد بيانات', description: 'يُبنى ميزان المراجعة تلقائياً من قيود السجل العام.', icon: 'scale' }}
+            empty={{
+              title: 'لا توجد بيانات',
+              description: 'يُبنى ميزان المراجعة تلقائياً من قيود السجل العام.',
+              icon: 'scale',
+            }}
             footer={
               <tr>
                 <td>الإجمالي</td>
@@ -130,8 +134,18 @@ const Reports: React.FC = () => {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <Card className="overflow-hidden xl:col-span-2">
             <CardHeader title="قائمة الدخل" subtitle="للفترة الحالية" />
-            <StatementRow label="الإيرادات" value={incomeStatement.revenue} tone="text-success-700" currency={currency} />
-            <StatementRow label="المصروفات" value={incomeStatement.expenses} tone="text-danger-700" currency={currency} />
+            <StatementRow
+              label="الإيرادات"
+              value={incomeStatement.revenue}
+              tone="text-success-700"
+              currency={currency}
+            />
+            <StatementRow
+              label="المصروفات"
+              value={incomeStatement.expenses}
+              tone="text-danger-700"
+              currency={currency}
+            />
             <StatementRow
               label="صافي الربح"
               value={incomeStatement.profit}
@@ -141,8 +155,19 @@ const Reports: React.FC = () => {
             />
           </Card>
           <div className="grid gap-4">
-            <StatCard label="هامش الربح" value={formatPercent(incomeStatement.margin, 2)} icon="percent" tone="success" />
-            <StatCard label="الإيراد الكلي" value={formatNumber(incomeStatement.revenue, 0)} unit={currency} icon="wallet" tone="brand" />
+            <StatCard
+              label="هامش الربح"
+              value={formatPercent(incomeStatement.margin, 2)}
+              icon="percent"
+              tone="success"
+            />
+            <StatCard
+              label="الإيراد الكلي"
+              value={formatNumber(incomeStatement.revenue, 0)}
+              unit={currency}
+              icon="wallet"
+              tone="brand"
+            />
           </div>
         </div>
       )}
@@ -151,9 +176,27 @@ const Reports: React.FC = () => {
       {activeTab === 'balance-sheet' && (
         <div className="grid grid-cols-1 gap-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <StatCard label="الأصول" value={formatNumber(balanceSheet.assets)} unit={currency} icon="building" tone="brand" />
-            <StatCard label="الخصوم" value={formatNumber(balanceSheet.liabilities)} unit={currency} icon="scale" tone="danger" />
-            <StatCard label="حقوق الملكية" value={formatNumber(balanceSheet.equity)} unit={currency} icon="pie" tone="info" />
+            <StatCard
+              label="الأصول"
+              value={formatNumber(balanceSheet.assets)}
+              unit={currency}
+              icon="building"
+              tone="brand"
+            />
+            <StatCard
+              label="الخصوم"
+              value={formatNumber(balanceSheet.liabilities)}
+              unit={currency}
+              icon="scale"
+              tone="danger"
+            />
+            <StatCard
+              label="حقوق الملكية"
+              value={formatNumber(balanceSheet.equity)}
+              unit={currency}
+              icon="pie"
+              tone="info"
+            />
           </div>
 
           <Card className="overflow-hidden">

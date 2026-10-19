@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 import Icon from '../ui/Icon';
@@ -16,26 +16,33 @@ const readCollapsed = () => {
   }
 };
 
-const Topbar: React.FC = () => {
+const Topbar: React.FC<{ onMenu: () => void }> = ({ onMenu }) => {
   const { pathname } = useLocation();
   const { currency, companyInfo } = useApp();
   const group = NAV_GROUPS.find((g) => g.items.some((i) => i.path === pathname));
   const item = group?.items.find((i) => i.path === pathname);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/90 px-8 backdrop-blur">
-      <nav aria-label="مسار الصفحة" className="flex min-w-0 items-center gap-2 text-sm">
-        <span className="text-ink-subtle">{companyInfo?.name || 'شركتك'}</span>
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/90 px-4 backdrop-blur sm:px-6 lg:px-8">
+      <button
+        onClick={onMenu}
+        aria-label="فتح القائمة"
+        className="-ms-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-slate-100 lg:hidden"
+      >
+        <Icon name="menu" size={20} />
+      </button>
+      <nav aria-label="مسار الصفحة" className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+        <span className="hidden truncate text-ink-subtle sm:inline">{companyInfo?.name || 'شركتك'}</span>
         {group && group.label !== 'عام' && group.label !== item?.label && (
           <>
-            <Icon name="chevronLeft" size={14} className="text-ink-faint" />
-            <span className="text-ink-subtle">{group.label}</span>
+            <Icon name="chevronLeft" size={14} className="hidden text-ink-faint sm:block" />
+            <span className="hidden text-ink-subtle sm:inline">{group.label}</span>
           </>
         )}
         {item && (
           <>
-            <Icon name="chevronLeft" size={14} className="text-ink-faint" />
-            <span className="font-medium text-ink">{item.label}</span>
+            <Icon name="chevronLeft" size={14} className="hidden text-ink-faint sm:block" />
+            <span className="truncate font-medium text-ink">{item.label}</span>
           </>
         )}
       </nav>
@@ -56,6 +63,11 @@ const Topbar: React.FC = () => {
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  // إغلاق الدرج عند الانتقال لصفحة أخرى
+  useEffect(() => setMobileOpen(false), [pathname]);
 
   const toggle = () =>
     setCollapsed((c) => {
@@ -69,11 +81,16 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-canvas">
-      <Sidebar collapsed={collapsed} onToggle={toggle} />
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={toggle}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+        <Topbar onMenu={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1400px] px-8 py-7">{children}</div>
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</div>
         </main>
       </div>
     </div>
