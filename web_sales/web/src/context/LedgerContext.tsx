@@ -6,6 +6,7 @@ import { useApp } from './AppContext';
 import {
   Account,
   AccountBalance,
+  AccountGroup,
   CompanyInfo,
   Operation,
   accountToJson,
@@ -52,6 +53,8 @@ interface LedgerContextType {
   ready: boolean;
   accounts: Account[];
   accountsById: Record<string, Account>;
+  /** مجموعات الحسابات كما في التطبيق */
+  groups: AccountGroup[];
   operations: Operation[];
   /** قيود في السحابة لحسابات محذوفة (لا تدخل في الأرصدة) */
   orphanOperations: Operation[];
@@ -119,6 +122,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [companyRaw, setCompanyRaw] = useState<any>(null);
   const [phoneBoxesRaw, setPhoneBoxesRaw] = useState<any>(null);
   const [erpRaw, setErpRaw] = useState<any>(null);
+  const [groupsRaw, setGroupsRaw] = useState<any>(null);
   const [salesCurrency, setSalesCurrency] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,6 +134,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       watchValue(`users/${uid}/companyInfo`, setCompanyRaw),
       watchValue(`users/${uid}/cashboxes`, setPhoneBoxesRaw),
       watchValue(`users/${uid}/erp`, setErpRaw),
+      watchValue(`users/${uid}/accountGroups`, setGroupsRaw),
       watchValue(`sales/${uid}/settings/currency`, (v) => setSalesCurrency(typeof v === 'string' ? v : null)),
     ];
     return () => subs.forEach((u) => u());
@@ -144,13 +149,18 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     () => objToList(opsRaw, parseOperation).sort((a, b) => a.date.localeCompare(b.date)),
     [opsRaw],
   );
-  // الهاتف عند حذف حساب يحذف قيوده محلياً فقط وتبقى في السحابة (DataService.deleteAccount)،
+  // التطبيق يحذف القيود حذفاً ناعماً (deletedAt) فتبقى في السحابة لكنها لا تدخل في رصيده.
+  // والهاتف عند حذف حساب يحذف قيوده محلياً فقط وتبقى في السحابة (DataService.deleteAccount)،
   // فلا يحسبها في رصيده. نتجاهلها هنا أيضاً حتى يطابق الرصيد الهاتف، ونعرضها في الإعدادات للتنظيف.
   const { operations, orphanOperations } = useMemo(() => {
-    if (accountsRaw === undefined) return { operations: allOperations, orphanOperations: [] as Operation[] };
+    if (accountsRaw === undefined)
+      return { operations: allOperations.filter((o) => !o.deletedAt), orphanOperations: [] as Operation[] };
     const ok: Operation[] = [];
     const orphan: Operation[] = [];
-    allOperations.forEach((o) => (accountsById[o.accountId] ? ok : orphan).push(o));
+    allOperations.forEach((o) => {
+      if (o.deletedAt) return;
+      (accountsById[o.accountId] ? ok : orphan).push(o);
+    });
     return { operations: ok, orphanOperations: orphan };
   }, [allOperations, accountsById, accountsRaw]);
   const opsByAccount = useMemo(() => {
@@ -204,11 +214,21 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [erp.cheques],
   );
 
+  const groups = useMemo(
+    () =>
+      objToList<AccountGroup>(groupsRaw, (k, v) => ({ id: v?.id || k, name: v?.name || '', createdAt: v?.createdAt || '' })).sort(
+        (a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''),
+      ),
+    [groupsRaw],
+  );
+
   const roleOf = useCallback(
     (accountId: string) => {
       const r = accountMeta[accountId]?.role;
       if (r) return r;
       const a = accountsById[accountId];
+      if (a?.entityType === 'client') return 'customer';
+      if (a?.entityType === 'merchant') return 'merchant';
       if (a?.type === 'bank') return 'bank';
       return 'general';
     },
@@ -248,7 +268,15 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             statement: d.statement || '',
             date: d.date || localIso(),
           };
-          updates[`operations/${op.id}`] = operationToJson(op);
+          // نفس حقول التتبع التي يكتبها التطبيق مع كل قيد
+          updates[`operations/${op.id}`] = {
+            ...operationToJson(op),
+            createdAt: new Date().toISOString(),
+            createdByUid: uid,
+            createdByName: company.name,
+            updatedByName: '',
+            updatedByUid: '',
+          };
           if (accountsById[op.accountId]?.allowClientLogin) {
             updates[`clientOps/${op.accountId}/${op.id}`] = operationToJson(op);
           }
@@ -256,7 +284,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       return { ops, updates };
     },
-    [accountsById, mainCurrency],
+    [accountsById, mainCurrency, uid, company.name],
   );
 
   const opRemovals = useCallback(
@@ -264,13 +292,16 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const updates: Updates = {};
       const byId = Object.fromEntries(operations.map((o) => [o.id, o]));
       ids.forEach((id) => {
-        updates[`operations/${id}`] = null;
+        // حذف ناعم كما يفعل التطبيق: القيد يبقى في السحابة بعلامة deletedAt
+        updates[`operations/${id}/deletedAt`] = new Date().toISOString();
+        updates[`operations/${id}/updatedByUid`] = uid;
+        updates[`operations/${id}/updatedByName`] = company.name;
         const op = byId[id];
         if (op && accountsById[op.accountId]?.allowClientLogin) updates[`clientOps/${op.accountId}/${id}`] = null;
       });
       return updates;
     },
-    [operations, accountsById],
+    [operations, accountsById, uid, company.name],
   );
 
   const saveAccount = useCallback<LedgerContextType['saveAccount']>(
@@ -295,6 +326,9 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         clientPhone: existing?.clientPhone ?? '',
         clientEmail: existing?.clientEmail ?? '',
         clientUid: existing?.clientUid ?? '',
+        groupId: a.groupId ?? existing?.groupId ?? '',
+        // دور "زبون" و"تاجر" له مقابل في التطبيق (entityType) فنكتبه ليظهر هناك أيضاً
+        entityType: role === 'customer' ? 'client' : role === 'merchant' ? 'merchant' : existing?.entityType ?? '',
       };
       const updates: Updates = existing
         ? Object.fromEntries(Object.entries(accountToJson(full)).map(([k, v]) => [`accounts/${id}/${k}`, v]))
@@ -314,7 +348,8 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         [`clientOps/${id}`]: null,
         [`erp/accountMeta/${id}`]: null,
       };
-      (opsByAccount[id] || []).forEach((o) => (updates[`operations/${o.id}`] = null));
+      const now = new Date().toISOString();
+      (opsByAccount[id] || []).forEach((o) => (updates[`operations/${o.id}/deletedAt`] = now));
       await write(updates);
       if (acc?.clientUid) await remove(ref(db, `clientAccountMap/${acc.clientUid}`)).catch(() => undefined);
     },
@@ -333,11 +368,17 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateOperation = useCallback<LedgerContextType['updateOperation']>(
     async (op) => {
       const fixed: Operation = { ...op, amountUSD: toMain(op.amount, op.exchangeRate || 1) };
-      const updates: Updates = { [`operations/${op.id}`]: operationToJson(fixed) };
+      // تحديث حقل بحقل حتى لا تضيع حقول التطبيق الإضافية (createdBy..., receiptId ...)
+      const updates: Updates = Object.fromEntries(
+        Object.entries(operationToJson(fixed)).map(([k, v]) => [`operations/${op.id}/${k}`, v]),
+      );
+      updates[`operations/${op.id}/updatedAt`] = localIso();
+      updates[`operations/${op.id}/updatedByUid`] = uid;
+      updates[`operations/${op.id}/updatedByName`] = company.name;
       if (accountsById[op.accountId]?.allowClientLogin) updates[`clientOps/${op.accountId}/${op.id}`] = operationToJson(fixed);
       await write(updates);
     },
-    [accountsById, write],
+    [accountsById, write, uid, company.name],
   );
 
   const deleteOperations = useCallback<LedgerContextType['deleteOperations']>(
@@ -577,6 +618,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ready: accountsRaw !== undefined && opsRaw !== undefined,
     accounts,
     accountsById,
+    groups,
     operations,
     orphanOperations,
     saveCompany,

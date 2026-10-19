@@ -18,11 +18,12 @@ import {
   totalsOf,
 } from '../lib/ledger';
 
-type RoleFilter = 'all' | 'customer' | 'supplier' | 'employee' | 'bank' | 'cash' | 'general';
+type RoleFilter = 'all' | 'customer' | 'merchant' | 'supplier' | 'employee' | 'bank' | 'cash' | 'general';
 
 const ROLE_TABS: Array<{ value: RoleFilter; label: string }> = [
   { value: 'all', label: 'كل الحسابات' },
-  { value: 'customer', label: 'الزبائن' },
+  { value: 'customer', label: 'العملاء' },
+  { value: 'merchant', label: 'التجار' },
   { value: 'supplier', label: 'الموردون' },
   { value: 'employee', label: 'الموظفون' },
   { value: 'bank', label: 'البنوك' },
@@ -34,7 +35,8 @@ const Accounts: React.FC = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const role = (params.get('role') as RoleFilter) || 'all';
-  const { accounts, operations, balances, mainCurrency, roleOf, ready } = useLedger();
+  const { accounts, operations, balances, mainCurrency, roleOf, ready, groups } = useLedger();
+  const [group, setGroup] = useState('');
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
   const [period, setPeriod] = useState<Period>(periodFromPreset('all'));
@@ -49,9 +51,10 @@ const Accounts: React.FC = () => {
       (a) =>
         (role === 'all' || roleOf(a.id) === role) &&
         (!category || a.category === category) &&
+        (!group || (group === '-' ? !a.groupId : a.groupId === group)) &&
         (!s || a.name.includes(s) || a.id.includes(s) || a.code.includes(s) || a.phone.includes(s)),
     );
-  }, [accounts, q, role, category, roleOf]);
+  }, [accounts, q, role, category, group, roleOf]);
 
   const listTotal = rows.reduce((s, a) => s + (balances[a.id]?.total || 0), 0);
 
@@ -68,6 +71,11 @@ const Accounts: React.FC = () => {
           )}
         </div>
       ),
+    },
+    {
+      key: 'grp',
+      header: 'المجموعة',
+      render: (a) => <span className="text-ink-muted">{groups.find((g) => g.id === a.groupId)?.name || '—'}</span>,
     },
     { key: 'cat', header: 'التصنيف', render: (a) => <Badge>{CATEGORY_LABELS[a.category] || 'أخرى'}</Badge> },
     {
@@ -179,6 +187,21 @@ const Accounts: React.FC = () => {
                 className="h-9 w-64 rounded-lg border border-line-strong bg-surface pe-3 ps-9 text-sm shadow-sm"
               />
             </div>
+            {groups.length > 0 && (
+              <select
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+                className="h-9 rounded-lg border border-line-strong bg-surface pe-8 ps-3 text-sm shadow-sm"
+              >
+                <option value="">كل المجموعات</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+                <option value="-">بدون مجموعة</option>
+              </select>
+            )}
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -219,7 +242,7 @@ const Accounts: React.FC = () => {
           )}
           footer={
             <tr>
-              <td colSpan={6}>الإجمالي ({formatNumber(rows.length, 0)} حساب)</td>
+              <td colSpan={7}>الإجمالي ({formatNumber(rows.length, 0)} حساب)</td>
               <td className="text-end">
                 <SignedAmount value={listTotal} label />
               </td>

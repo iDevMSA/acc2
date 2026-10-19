@@ -35,7 +35,7 @@ export const AccountFormModal: React.FC<{
   defaultRole?: string;
   onSaved?: (id: string) => void;
 }> = ({ open, onClose, account, defaultRole, onSaved }) => {
-  const { saveAccount, roleOf } = useLedger();
+  const { saveAccount, roleOf, groups } = useLedger();
   const [form, setForm] = useState({
     name: '',
     code: '',
@@ -44,6 +44,7 @@ export const AccountFormModal: React.FC<{
     type: 'cash',
     category: 'other',
     role: 'general',
+    groupId: '',
   });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,6 +66,7 @@ export const AccountFormModal: React.FC<{
             ? 'liability'
             : 'other'),
       role: account ? roleOf(account.id) : defaultRole || 'general',
+      groupId: account?.groupId || '',
     });
   }, [open, account, defaultRole, roleOf]);
 
@@ -140,6 +142,18 @@ export const AccountFormModal: React.FC<{
             ))}
           </Select>
         </Field>
+        {groups.length > 0 && (
+          <Field label="المجموعة" hint="نفس مجموعات الحسابات في التطبيق">
+            <Select value={form.groupId} onChange={set('groupId')}>
+              <option value="">بدون مجموعة</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label="العنوان">
           <Input value={form.address} onChange={set('address')} />
         </Field>

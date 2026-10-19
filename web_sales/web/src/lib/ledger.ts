@@ -15,7 +15,7 @@
 export type AccountCategory = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense' | 'other';
 export type AccountType = 'cash' | 'bank' | 'usdt' | 'other';
 /** دور الحساب في الويب فقط (فهارس الزبائن والموردين والموظفين) */
-export type AccountRole = 'customer' | 'supplier' | 'employee' | 'bank' | 'cash' | 'general';
+export type AccountRole = 'customer' | 'supplier' | 'merchant' | 'employee' | 'bank' | 'cash' | 'general';
 
 export interface Account {
   id: string;
@@ -30,6 +30,16 @@ export interface Account {
   clientPhone: string;
   clientEmail: string;
   clientUid: string;
+  /** مجموعة الحساب (users/{uid}/accountGroups) — يكتبها التطبيق */
+  groupId: string;
+  /** نوع الطرف في التطبيق: client = عميل، merchant = تاجر */
+  entityType: string;
+}
+
+export interface AccountGroup {
+  id: string;
+  name: string;
+  createdAt?: string;
 }
 
 export interface Operation {
@@ -43,6 +53,8 @@ export interface Operation {
   amountUSD: number;
   statement: string;
   date: string;
+  /** التطبيق يحذف القيد حذفاً ناعماً بوضع deletedAt — لا يدخل في أي رصيد */
+  deletedAt?: string;
 }
 
 export interface CompanyInfo {
@@ -69,7 +81,8 @@ export const TYPE_LABELS: Record<string, string> = {
 };
 
 export const ROLE_LABELS: Record<AccountRole, string> = {
-  customer: 'زبون',
+  customer: 'زبون / عميل',
+  merchant: 'تاجر',
   supplier: 'مورد',
   employee: 'موظف',
   bank: 'بنك',
@@ -96,6 +109,8 @@ export const parseAccount = (key: string, j: any): Account => ({
   clientPhone: str(j?.clientPhone),
   clientEmail: str(j?.clientEmail),
   clientUid: str(j?.clientUid),
+  groupId: str(j?.groupId),
+  entityType: str(j?.entityType),
 });
 
 /** نفس Operation.fromJson في التطبيق */
@@ -108,6 +123,7 @@ export const parseOperation = (key: string, j: any): Operation => ({
   amountUSD: num(j?.amountUSD),
   statement: str(j?.statement),
   date: str(j?.date),
+  deletedAt: j?.deletedAt ? str(j.deletedAt) : undefined,
 });
 
 /** نفس Account.toJson — كل الحقول، حتى لا يقرأ الهاتف قيمة ناقصة */
@@ -124,6 +140,8 @@ export const accountToJson = (a: Account) => ({
   clientPhone: a.clientPhone,
   clientEmail: a.clientEmail,
   clientUid: a.clientUid,
+  groupId: a.groupId,
+  ...(a.entityType ? { entityType: a.entityType } : {}),
 });
 
 export const operationToJson = (o: Operation) => ({
