@@ -1,13 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../config/firebase';
 import { ref, onValue } from 'firebase/database';
 import { useApp } from '../context/AppContext';
 import { useTaxSettings } from '../hooks/useTaxSettings';
-import { TAX_COUNTRIES, countryForCurrency, findTaxCountry } from '../tax/countries';
+import { TAX_COUNTRIES, TaxCountry, countryForCurrency, findTaxCountry } from '../tax/countries';
 import {
   SalesInvoice,
+  TaxSettings,
   buildTaxReport,
+  effectiveCountry,
+  parseRates,
   computeInvoiceTax,
   validateTrn,
   zatcaQrBase64,
@@ -26,6 +29,10 @@ const Taxes: React.FC = () => {
   const [countryCode, setCountryCode] = useState('');
   const [trn, setTrn] = useState('');
   const [standardRate, setStandardRate] = useState('');
+  const [reducedRates, setReducedRates] = useState('');
+  const [hasVat, setHasVat] = useState(true);
+  const [taxName, setTaxName] = useState('');
+  const [filing, setFiling] = useState<TaxSettings['filing']>('none');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -43,32 +50,44 @@ const Taxes: React.FC = () => {
     };
   }, [user]);
 
-  // تعبئة النموذج من الإعدادات المحفوظة، أو من عملة الحساب عند أول استخدام
+  const fillForm = useCallback((c: TaxCountry) => {
+    setStandardRate(String(c.standardRate));
+    setReducedRates(c.reducedRates.join('، '));
+    setHasVat(c.hasVat);
+    setTaxName(c.taxName);
+    setFiling(c.filing);
+  }, []);
+
+  // تعبئة النموذج من إعدادات الحساب المحفوظة، أو من عملة الحساب عند أول استخدام
   useEffect(() => {
     if (loading) return;
     const fallback = countryForCurrency(currency) || TAX_COUNTRIES[0];
     const c = findTaxCountry(settings?.countryCode) || fallback;
     setCountryCode(c.code);
     setTrn(settings?.trn || '');
-    setStandardRate(String(settings?.standardRate ?? c.standardRate));
-  }, [loading, settings, currency]);
+    fillForm(effectiveCountry(c, settings?.countryCode === c.code ? settings : null));
+  }, [loading, settings, currency, fillForm]);
 
-  const country = findTaxCountry(countryCode);
+  const baseCountry = findTaxCountry(countryCode);
   const rate = parseFloat(standardRate);
+  const reduced = parseRates(reducedRates);
+  const country = baseCountry
+    ? effectiveCountry(baseCountry, {
+        standardRate: isNaN(rate) ? undefined : rate,
+        reducedRates: reduced ?? undefined,
+        hasVat,
+        taxName,
+        filing,
+      })
+    : undefined;
   const trnValid = country ? validateTrn(country, trn) : false;
 
   const report = useMemo(() => {
     if (!country) return null;
     const end = new Date(to);
     end.setHours(23, 59, 59, 999);
-    return buildTaxReport(
-      invoices,
-      country,
-      { standardRate: isNaN(rate) ? undefined : rate },
-      new Date(from + 'T00:00:00'),
-      end,
-    );
-  }, [invoices, country, rate, from, to]);
+    return buildTaxReport(invoices, country, undefined, new Date(from + 'T00:00:00'), end);
+  }, [invoices, country, from, to]);
 
   const closedInvoices = useMemo(
     () =>
@@ -93,13 +112,25 @@ const Taxes: React.FC = () => {
       setMessage('المعدل يجب أن يكون بين 0 و 100');
       return;
     }
+    if (!reduced) {
+      setMessage('المعدلات المخفضة يجب أن تكون أرقاماً بين 0 و 100 مفصولة بفواصل');
+      return;
+    }
     if (!trnValid) {
       setMessage(`${country.trnLabel} غير صحيح${country.trnHint ? ` (${country.trnHint})` : ''}`);
       return;
     }
     setSaving(true);
     try {
-      await save({ countryCode: country.code, trn: trn.trim(), standardRate: rate });
+      await save({
+        countryCode: country.code,
+        trn: trn.trim(),
+        standardRate: rate,
+        reducedRates: reduced,
+        hasVat,
+        taxName: taxName.trim(),
+        filing,
+      });
       setMessage('تم الحفظ');
     } catch (e: any) {
       setMessage(`تعذر الحفظ: ${e?.message || e}`);
@@ -125,7 +156,7 @@ const Taxes: React.FC = () => {
               onChange={(e) => {
                 const c = findTaxCountry(e.target.value);
                 setCountryCode(e.target.value);
-                if (c) setStandardRate(String(c.standardRate));
+                if (c) fillForm(c);
               }}
               className="mt-1 w-full border rounded-lg px-3 py-2"
             >
@@ -152,21 +183,54 @@ const Taxes: React.FC = () => {
               type="number"
               value={standardRate}
               onChange={(e) => setStandardRate(e.target.value)}
-              disabled={!country?.hasVat}
+              disabled={!hasVat}
               dir="ltr"
               className="mt-1 w-full border rounded-lg px-3 py-2"
             />
           </label>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <label className="block">
+            <span className="text-sm text-gray-600">اسم الضريبة في الفواتير والتقارير</span>
+            <input
+              value={taxName}
+              onChange={(e) => setTaxName(e.target.value)}
+              className="mt-1 w-full border rounded-lg px-3 py-2"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm text-gray-600">المعدلات المخفضة المسموحة % (مفصولة بفواصل)</span>
+            <input
+              value={reducedRates}
+              onChange={(e) => setReducedRates(e.target.value)}
+              disabled={!hasVat}
+              dir="ltr"
+              className={`mt-1 w-full border rounded-lg px-3 py-2 ${reduced ? '' : 'border-red-500'}`}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm text-gray-600">فترة الإقرار</span>
+            <select
+              value={filing}
+              onChange={(e) => setFiling(e.target.value as TaxSettings['filing'])}
+              className="mt-1 w-full border rounded-lg px-3 py-2"
+            >
+              <option value="monthly">شهري</option>
+              <option value="quarterly">ربع سنوي</option>
+              <option value="none">لا يوجد</option>
+            </select>
+          </label>
+        </div>
+        <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={hasVat} onChange={(e) => setHasVat(e.target.checked)} />
+          الحساب خاضع للضريبة (ألغِ التحديد إذا كانت المنشأة غير مسجلة أو معفاة)
+        </label>
         {country && (
           <div className="mt-4 text-sm text-gray-600 space-y-1">
             <div>
               {country.taxName} · {country.authority}
               {country.filing !== 'none' && ` · إقرار ${country.filing === 'monthly' ? 'شهري' : 'ربع سنوي'}`}
             </div>
-            {country.reducedRates.length > 0 && (
-              <div>المعدلات المسموحة أيضاً: {country.reducedRates.map((r) => `${r}%`).join('، ')}</div>
-            )}
             {country.notes && <div className="text-amber-700">{country.notes}</div>}
           </div>
         )}
@@ -177,6 +241,13 @@ const Taxes: React.FC = () => {
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
           >
             {saving ? 'جاري الحفظ...' : 'حفظ'}
+          </button>
+          <button
+            onClick={() => baseCountry && fillForm(baseCountry)}
+            disabled={!baseCountry}
+            className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50"
+          >
+            استعادة قيم الدولة الافتراضية
           </button>
           {message && <span className="text-sm text-gray-700">{message}</span>}
         </div>

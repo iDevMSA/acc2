@@ -1,11 +1,37 @@
 import { TaxCountry } from './countries';
 
 // إعدادات الضريبة المحفوظة في sales/{uid}/taxSettings (عقدة جديدة، لا يقرؤها تطبيق الهاتف)
+// كل حساب يمكنه تعديل قيم دولته؛ الحقول الاختيارية غير المحفوظة تأخذ قيمة الدولة الافتراضية
 export interface TaxSettings {
   countryCode: string;
   trn: string;
-  standardRate: number; // يسمح بتعديل المعدل الافتراضي للدولة
+  standardRate: number;
+  reducedRates?: number[];
+  hasVat?: boolean;
+  taxName?: string;
+  filing?: TaxCountry['filing'];
 }
+
+// ملف الدولة بعد تطبيق تعديلات الحساب
+export const effectiveCountry = (country: TaxCountry, settings?: Partial<TaxSettings> | null): TaxCountry => {
+  if (!settings) return country;
+  return {
+    ...country,
+    taxName: settings.taxName?.trim() || country.taxName,
+    standardRate: settings.standardRate ?? country.standardRate,
+    reducedRates: settings.reducedRates ?? country.reducedRates,
+    hasVat: settings.hasVat ?? country.hasVat,
+    filing: settings.filing ?? country.filing,
+  };
+};
+
+// "5، 10 ,0" ← [10, 5, 0]؛ يرجع null إذا كانت هناك قيمة غير صالحة
+export const parseRates = (text: string): number[] | null => {
+  const parts = text.split(/[,،\s]+/).filter(Boolean);
+  const rates = parts.map(Number);
+  if (rates.some((r) => isNaN(r) || r < 0 || r > 100)) return null;
+  return Array.from(new Set(rates)).sort((a, b) => b - a);
+};
 
 // نفس بنية الفاتورة التي يكتبها تطبيق Flutter في sales/{uid}/invoices
 export interface SalesInvoiceItem {
@@ -78,9 +104,9 @@ export interface TaxReport {
 }
 
 export const allowedRates = (country: TaxCountry, settings?: Partial<TaxSettings>): number[] => {
-  if (!country.hasVat) return [0];
-  const standard = settings?.standardRate ?? country.standardRate;
-  return Array.from(new Set([standard, ...country.reducedRates, 0]));
+  const c = effectiveCountry(country, settings);
+  if (!c.hasVat) return [0];
+  return Array.from(new Set([c.standardRate, ...c.reducedRates, 0]));
 };
 
 const inPeriod = (createdAt: string | undefined, from?: Date, to?: Date) => {

@@ -1,5 +1,13 @@
 import { TAX_COUNTRIES, findTaxCountry } from './countries';
-import { buildTaxReport, computeInvoiceTax, validateTrn, zatcaQrBase64 } from './taxEngine';
+import {
+  allowedRates,
+  buildTaxReport,
+  computeInvoiceTax,
+  effectiveCountry,
+  parseRates,
+  validateTrn,
+  zatcaQrBase64,
+} from './taxEngine';
 
 const SA = findTaxCountry('SA')!;
 const EG = findTaxCountry('EG')!;
@@ -71,4 +79,23 @@ test('country list matches the countries chosen for the ERP', () => {
   expect(TAX_COUNTRIES.map((c) => c.code).sort()).toEqual(
     ['AE', 'BH', 'EG', 'IQ', 'JO', 'KW', 'LB', 'OM', 'PS', 'QA', 'SA', 'SY', 'YE'],
   );
+});
+
+test('account overrides replace country defaults', () => {
+  const c = effectiveCountry(SA, { standardRate: 12, reducedRates: [5], taxName: 'ضريبة مخصصة' });
+  expect(c.standardRate).toBe(12);
+  expect(c.taxName).toBe('ضريبة مخصصة');
+  expect(c.filing).toBe(SA.filing);
+  expect(allowedRates(SA, { standardRate: 12, reducedRates: [5] }).sort()).toEqual([0, 12, 5].sort());
+  // تعطيل الضريبة لحساب غير مسجل
+  expect(allowedRates(SA, { hasVat: false })).toEqual([0]);
+  // تفعيل الضريبة لدولة بلا ضريبة عامة
+  expect(allowedRates(KW, { hasVat: true, standardRate: 5 })).toContain(5);
+});
+
+test('parseRates accepts Arabic and Latin separators', () => {
+  expect(parseRates('5، 10 ,0')).toEqual([10, 5, 0]);
+  expect(parseRates('')).toEqual([]);
+  expect(parseRates('5, abc')).toBeNull();
+  expect(parseRates('150')).toBeNull();
 });
