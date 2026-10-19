@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { db } from '../config/firebase';
-import { ref, onValue } from 'firebase/database';
+import { watchValue } from '../lib/offlineStore';
 
 interface InvoiceItem {
   name?: string;
@@ -32,15 +31,9 @@ export const useInvoiceProfitability = (userId: string | null, invoiceId?: strin
   useEffect(() => {
     if (!userId) return;
 
-    let invoicesRef;
-    if (invoiceId) {
-      invoicesRef = ref(db, `users/${userId}/invoices/${invoiceId}`);
-    } else {
-      invoicesRef = ref(db, `users/${userId}/invoices`);
-    }
+    const path = invoiceId ? `users/${userId}/invoices/${invoiceId}` : `users/${userId}/invoices`;
 
-    const unsubscribe = onValue(invoicesRef, (snapshot) => {
-      const invoicesData = snapshot.val();
+    const unsubscribe = watchValue(path, (invoicesData) => {
       if (!invoicesData) {
         setData([]);
         setLoading(false);

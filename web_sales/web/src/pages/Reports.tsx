@@ -1,285 +1,234 @@
-import React, { useEffect, useState } from 'react';
-import { db } from '../config/firebase';
-import { ref, onValue } from 'firebase/database';
+import React, { useEffect, useMemo, useState } from 'react';
+import { watchValue } from '../lib/offlineStore';
 import { useApp } from '../context/AppContext';
+import { Badge, Card, CardHeader, PageHeader, StatCard, Tabs, cx } from '../components/ui/primitives';
+import DataTable, { Column } from '../components/ui/DataTable';
+import Icon from '../components/ui/Icon';
+import { formatNumber, formatPercent } from '../lib/format';
+import {
+  TrialBalanceItem,
+  calculateBalanceSheet,
+  calculateIncomeStatement,
+  calculateTrialBalance,
+} from '../lib/statements';
 
-interface TrialBalanceItem {
-  account: string;
-  debit: number;
-  credit: number;
-}
+type ReportTab = 'trial-balance' | 'income-statement' | 'balance-sheet';
+
+const StatementRow: React.FC<{ label: string; value: number; tone?: string; strong?: boolean; currency: string }> = ({
+  label,
+  value,
+  tone,
+  strong,
+  currency,
+}) => (
+  <div
+    className={cx(
+      'flex items-center justify-between px-5 py-3.5',
+      strong ? 'bg-slate-50 font-semibold' : 'border-b border-line',
+    )}
+  >
+    <span className={strong ? 'text-ink' : 'text-ink-muted'}>{label}</span>
+    <span className="flex items-baseline gap-1.5">
+      <span className={cx('num', strong ? 'text-lg' : '', tone || 'text-ink')}>{formatNumber(value)}</span>
+      <span className="text-xs font-normal text-ink-subtle">{currency}</span>
+    </span>
+  </div>
+);
 
 const Reports: React.FC = () => {
-  const { user } = useApp();
-  const [activeTab, setActiveTab] = useState<'trial-balance' | 'income-statement' | 'balance-sheet'>('trial-balance');
+  const { user, currency } = useApp();
+  const [activeTab, setActiveTab] = useState<ReportTab>('trial-balance');
   const [journal, setJournal] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
 
-    const journalRef = ref(db, `users/${user.uid}/journal_entries`);
-    onValue(journalRef, (snapshot) => {
-      const data = snapshot.val();
+    return watchValue(`users/${user.uid}/journal_entries`, (data) => {
       if (data) {
         setJournal(Object.values(data as any));
       }
     });
-
   }, [user]);
 
-  // حساب ميزان المراجعة
-  const calculateTrialBalance = (): TrialBalanceItem[] => {
-    if (journal.length === 0) return [];
+  const trialBalance = useMemo(() => calculateTrialBalance(journal), [journal]);
+  const incomeStatement = useMemo(() => calculateIncomeStatement(journal), [journal]);
+  const balanceSheet = useMemo(() => calculateBalanceSheet(journal), [journal]);
 
-    const balances: { [key: string]: { debit: number; credit: number } } = {};
-
-    journal.forEach((entry) => {
-      const accountName = entry.account || 'حساب عام';
-      if (!balances[accountName]) {
-        balances[accountName] = { debit: 0, credit: 0 };
-      }
-      if (entry.debit) balances[accountName].debit += entry.debit;
-      if (entry.credit) balances[accountName].credit += entry.credit;
-    });
-
-    return Object.entries(balances).map(([account, amounts]) => ({
-      account,
-      debit: amounts.debit,
-      credit: amounts.credit,
-    }));
+  const tbTotals = {
+    debit: trialBalance.reduce((sum, item) => sum + item.debit, 0),
+    credit: trialBalance.reduce((sum, item) => sum + item.credit, 0),
   };
 
-  // حساب قائمة الدخل
-  const calculateIncomeStatement = () => {
-    const revenueAccounts = journal.filter((e) => e.type === 'Revenue' || e.statement?.includes('إيراد'));
-    const expenseAccounts = journal.filter((e) => e.type === 'Expense' || e.statement?.includes('مصروف'));
-
-    const revenue = revenueAccounts.reduce((sum, e) => sum + (e.credit || 0), 0);
-    const expenses = expenseAccounts.reduce((sum, e) => sum + (e.debit || 0), 0);
-
-    return {
-      revenue,
-      expenses,
-      grossProfit: revenue - expenses,
-      profit: revenue - expenses,
-      margin: revenue > 0 ? ((revenue - expenses) / revenue * 100).toFixed(2) : '0',
-    };
-  };
-
-  // حساب الميزانية العمومية
-  const calculateBalanceSheet = () => {
-    const assets = journal.filter((e) => e.type === 'Asset' || e.statement?.includes('أصل'));
-    const liabilities = journal.filter((e) => e.type === 'Liability' || e.statement?.includes('خصم'));
-    const equity = journal.filter((e) => e.type === 'Equity' || e.statement?.includes('حقوق'));
-
-    const totalAssets = assets.reduce((sum, e) => sum + (e.debit || 0), 0);
-    const totalLiabilities = liabilities.reduce((sum, e) => sum + (e.credit || 0), 0);
-    const totalEquity = equity.reduce((sum, e) => sum + (e.credit || 0), 0);
-
-    return {
-      assets: totalAssets,
-      liabilities: totalLiabilities,
-      equity: totalEquity,
-      balanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
-    };
-  };
-
-  const trialBalance = calculateTrialBalance();
-  const incomeStatement = calculateIncomeStatement();
-  const balanceSheet = calculateBalanceSheet();
+  const tbColumns: Array<Column<TrialBalanceItem>> = [
+    { key: 'account', header: 'الحساب', render: (item) => <span className="font-medium">{item.account}</span> },
+    { key: 'debit', header: 'مدين', numeric: true, className: 'w-44', render: (item) => formatNumber(item.debit) },
+    { key: 'credit', header: 'دائن', numeric: true, className: 'w-44', render: (item) => formatNumber(item.credit) },
+  ];
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">التقارير المالية</h1>
+    <>
+      <PageHeader
+        title="التقارير المالية"
+        description="القوائم المالية المحسوبة من قيود السجل العام"
+        actions={
+          <Tabs<ReportTab>
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { value: 'trial-balance', label: 'ميزان المراجعة', icon: 'scale' },
+              { value: 'income-statement', label: 'قائمة الدخل', icon: 'trendUp' },
+              { value: 'balance-sheet', label: 'الميزانية العمومية', icon: 'pie' },
+            ]}
+          />
+        }
+      />
 
-      {/* Tabs */}
-      <div className="flex gap-4 mb-8 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('trial-balance')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'trial-balance'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          ميزان المراجعة
-        </button>
-        <button
-          onClick={() => setActiveTab('income-statement')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'income-statement'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          قائمة الدخل
-        </button>
-        <button
-          onClick={() => setActiveTab('balance-sheet')}
-          className={`px-4 py-2 font-medium ${
-            activeTab === 'balance-sheet'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          الميزانية العمومية
-        </button>
-      </div>
-
-      {/* Trial Balance Tab */}
+      {/* ميزان المراجعة */}
       {activeTab === 'trial-balance' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">ميزان المراجعة</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">الحساب</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">مدين</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">دائن</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trialBalance.length > 0 ? (
-                  <>
-                    {trialBalance.map((item, idx) => (
-                      <tr key={idx} className="border-b hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-900">{item.account}</td>
-                        <td className="px-6 py-4 text-sm text-right font-mono">
-                          {item.debit.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-right font-mono">
-                          {item.credit.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="bg-blue-50 font-bold">
-                      <td className="px-6 py-4 text-sm text-gray-900">الإجمالي</td>
-                      <td className="px-6 py-4 text-sm text-right font-mono">
-                        {trialBalance.reduce((sum, item) => sum + item.debit, 0).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-right font-mono">
-                        {trialBalance.reduce((sum, item) => sum + item.credit, 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  </>
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
-                      لا توجد بيانات
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Card className="overflow-hidden">
+          <CardHeader
+            title="ميزان المراجعة"
+            subtitle={`${formatNumber(trialBalance.length, 0)} حساب · المبالغ بـ ${currency}`}
+            actions={
+              trialBalance.length > 0 &&
+              (Math.abs(tbTotals.debit - tbTotals.credit) < 0.01 ? (
+                <Badge tone="success">
+                  <Icon name="check" size={12} /> متوازن
+                </Badge>
+              ) : (
+                <Badge tone="danger">
+                  <Icon name="alert" size={12} /> غير متوازن
+                </Badge>
+              ))
+            }
+          />
+          <DataTable
+            columns={tbColumns}
+            rows={trialBalance}
+            rowKey={(item) => item.account}
+            empty={{
+              title: 'لا توجد بيانات',
+              description: 'يُبنى ميزان المراجعة تلقائياً من قيود السجل العام.',
+              icon: 'scale',
+            }}
+            footer={
+              <tr>
+                <td>الإجمالي</td>
+                <td className="text-end">
+                  <span className="num">{formatNumber(tbTotals.debit)}</span>
+                </td>
+                <td className="text-end">
+                  <span className="num">{formatNumber(tbTotals.credit)}</span>
+                </td>
+              </tr>
+            }
+          />
+        </Card>
       )}
 
-      {/* Income Statement Tab */}
+      {/* قائمة الدخل */}
       {activeTab === 'income-statement' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">قائمة الدخل</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center pb-3 border-b">
-                <span className="text-gray-600">الإيرادات</span>
-                <span className="font-mono text-lg text-green-600">
-                  {incomeStatement.revenue.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b">
-                <span className="text-gray-600">المصروفات</span>
-                <span className="font-mono text-lg text-red-600">
-                  {incomeStatement.expenses.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-3 bg-blue-50 px-3 rounded font-bold">
-                <span className="text-gray-900">الربح الصافي</span>
-                <span className="font-mono text-lg text-blue-600">
-                  {incomeStatement.profit.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">مؤشرات الأداء</h2>
-            <div className="space-y-4">
-              <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded">
-                <div className="text-sm text-gray-600">هامش الربح</div>
-                <div className="text-3xl font-bold text-green-600">{incomeStatement.margin}%</div>
-              </div>
-              <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded">
-                <div className="text-sm text-gray-600">الإيراد الكلي</div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {incomeStatement.revenue.toFixed(0)}
-                </div>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <Card className="overflow-hidden xl:col-span-2">
+            <CardHeader title="قائمة الدخل" subtitle="للفترة الحالية" />
+            <StatementRow
+              label="الإيرادات"
+              value={incomeStatement.revenue}
+              tone="text-success-700"
+              currency={currency}
+            />
+            <StatementRow
+              label="المصروفات"
+              value={incomeStatement.expenses}
+              tone="text-danger-700"
+              currency={currency}
+            />
+            <StatementRow
+              label="صافي الربح"
+              value={incomeStatement.profit}
+              tone={incomeStatement.profit >= 0 ? 'text-brand-700' : 'text-danger-700'}
+              currency={currency}
+              strong
+            />
+          </Card>
+          <div className="grid gap-4">
+            <StatCard
+              label="هامش الربح"
+              value={formatPercent(incomeStatement.margin, 2)}
+              icon="percent"
+              tone="success"
+            />
+            <StatCard
+              label="الإيراد الكلي"
+              value={formatNumber(incomeStatement.revenue, 0)}
+              unit={currency}
+              icon="wallet"
+              tone="brand"
+            />
           </div>
         </div>
       )}
 
-      {/* Balance Sheet Tab */}
+      {/* الميزانية العمومية */}
       {activeTab === 'balance-sheet' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">الأصول</h2>
-            <div className="text-3xl font-bold text-blue-600">
-              {balanceSheet.assets.toFixed(2)}
-            </div>
+        <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <StatCard
+              label="الأصول"
+              value={formatNumber(balanceSheet.assets)}
+              unit={currency}
+              icon="building"
+              tone="brand"
+            />
+            <StatCard
+              label="الخصوم"
+              value={formatNumber(balanceSheet.liabilities)}
+              unit={currency}
+              icon="scale"
+              tone="danger"
+            />
+            <StatCard
+              label="حقوق الملكية"
+              value={formatNumber(balanceSheet.equity)}
+              unit={currency}
+              icon="pie"
+              tone="info"
+            />
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">الخصوم</h2>
-            <div className="text-3xl font-bold text-red-600">
-              {balanceSheet.liabilities.toFixed(2)}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">حقوق الملكية</h2>
-            <div className="text-3xl font-bold text-purple-600">
-              {balanceSheet.equity.toFixed(2)}
-            </div>
-          </div>
-
-          {/* Balance Check */}
-          <div className="lg:col-span-3 bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">تحقق من التوازن</h3>
-              <div className={`text-xl font-bold px-4 py-2 rounded ${
-                balanceSheet.balanced
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {balanceSheet.balanced ? '✅ متوازنة' : '❌ غير متوازنة'}
+          <Card className="overflow-hidden">
+            <CardHeader
+              title="معادلة الميزانية"
+              subtitle="الأصول = الخصوم + حقوق الملكية"
+              actions={
+                balanceSheet.balanced ? (
+                  <Badge tone="success">
+                    <Icon name="check" size={12} /> متوازنة
+                  </Badge>
+                ) : (
+                  <Badge tone="danger">
+                    <Icon name="alert" size={12} /> غير متوازنة
+                  </Badge>
+                )
+              }
+            />
+            <div className="grid grid-cols-1 items-center gap-4 p-6 text-center md:grid-cols-[1fr_auto_1fr]">
+              <div className="rounded-xl bg-slate-50 p-5">
+                <p className="text-sm text-ink-subtle">الأصول</p>
+                <p className="num mt-1 text-2xl font-semibold text-ink">{formatNumber(balanceSheet.assets)}</p>
+              </div>
+              <span className="text-3xl font-light text-ink-faint">=</span>
+              <div className="rounded-xl bg-slate-50 p-5">
+                <p className="text-sm text-ink-subtle">الخصوم + حقوق الملكية</p>
+                <p className="num mt-1 text-2xl font-semibold text-ink">
+                  {formatNumber(balanceSheet.liabilities + balanceSheet.equity)}
+                </p>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-sm text-gray-600">الأصول</div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {balanceSheet.assets.toFixed(0)}
-                </div>
-              </div>
-              <div className="flex items-center justify-center">
-                <span className="text-3xl font-bold text-gray-400">=</span>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">الخصوم + الملكية</div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {(balanceSheet.liabilities + balanceSheet.equity).toFixed(0)}
-                </div>
-              </div>
-            </div>
-          </div>
+          </Card>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

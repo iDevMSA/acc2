@@ -6,18 +6,19 @@ import Dashboard from './pages/Dashboard';
 import Accounting from './pages/Accounting';
 import Invoices from './pages/Invoices';
 import Reports from './pages/Reports';
-import Sidebar from './components/Sidebar';
+import { BrandMark } from './components/Sidebar';
+import AppShell from './components/layout/AppShell';
+import { Spinner } from './components/ui/primitives';
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useApp();
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">جاري التحميل...</p>
-        </div>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas">
+        <BrandMark className="h-11 w-11" />
+        <Spinner />
+        <p className="text-sm text-ink-subtle">جاري التحميل...</p>
       </div>
     );
   }
@@ -26,14 +27,7 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return <Navigate to="/login" />;
   }
 
-  return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 };
 
 function App() {

@@ -2,20 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  direction: rtl;
+@layer base {
+  html {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  body {
+    margin: 0;
+    @apply font-sans text-sm;
+  }
+
+  /* الأرقام والمبالغ تبقى من اليسار لليمين داخل الواجهة العربية */
+  .num {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500/40 ring-offset-1;
+  }
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@layer components {
+  /* جداول البيانات: نفس الشكل في كل الصفحات */
+  .table-base {
+    @apply w-full border-separate border-spacing-0 text-sm;
+  }
+  .table-base :where(thead th) {
+    @apply sticky top-0 z-[1] whitespace-nowrap border-b border-line bg-slate-50/95 px-5 py-3 text-start text-xs font-semibold text-ink-subtle backdrop-blur;
+  }
+  .table-base :where(tbody td) {
+    @apply border-b border-line px-5 py-3.5 text-ink;
+  }
+  .table-base :where(tbody tr:last-child td) {
+    @apply border-b-0;
+  }
+  .table-base :where(tbody tr) {
+    @apply transition-colors hover:bg-slate-50/70;
+  }
+  .table-base :where(tfoot td) {
+    @apply border-t border-line-strong bg-slate-50 px-5 py-3.5 font-semibold text-ink;
+  }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  .field-input {
+    @apply block w-full rounded-lg border border-line-strong bg-surface px-3.5 py-2.5 text-sm text-ink shadow-sm placeholder:text-ink-faint transition focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15;
+  }
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-ink-muted;
+  }
 }
