@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { db } from '../config/firebase';
-import { ref, onValue } from 'firebase/database';
+import { watchValue } from '../lib/offlineStore';
 import { useApp } from '../context/AppContext';
 import { Badge, Card, CardHeader, PageHeader, StatCard, Tabs, cx } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
@@ -44,9 +43,7 @@ const Reports: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    const journalRef = ref(db, `users/${user.uid}/journal_entries`);
-    return onValue(journalRef, (snapshot) => {
-      const data = snapshot.val();
+    return watchValue(`users/${user.uid}/journal_entries`, (data) => {
       if (data) {
         setJournal(Object.values(data as any));
       }

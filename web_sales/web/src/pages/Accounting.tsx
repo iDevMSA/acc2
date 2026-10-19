@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { db } from '../config/firebase';
-import { ref, onValue } from 'firebase/database';
+import { watchValue } from '../lib/offlineStore';
 import { useApp } from '../context/AppContext';
 import { Badge, Card, CardHeader, EmptyState, PageHeader, StatCard } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
@@ -16,18 +15,14 @@ const Accounting: React.FC = () => {
     if (!user) return;
 
     // تحميل الحسابات
-    const accountsRef = ref(db, `users/${user.uid}/accounts`);
-    const unsubAccounts = onValue(accountsRef, (snapshot) => {
-      const data = snapshot.val();
+    const unsubAccounts = watchValue(`users/${user.uid}/accounts`, (data) => {
       if (data) {
         setAccounts(Object.values(data as any));
       }
     });
 
     // تحميل السجل العام
-    const journalRef = ref(db, `users/${user.uid}/journal_entries`);
-    const unsubJournal = onValue(journalRef, (snapshot) => {
-      const data = snapshot.val();
+    const unsubJournal = watchValue(`users/${user.uid}/journal_entries`, (data) => {
       if (data) {
         setJournal(Object.values(data as any));
       }
@@ -132,6 +127,39 @@ const Accounting: React.FC = () => {
             rows={journal}
             rowKey={(_, i) => String(i)}
             maxHeight="560px"
+            mobileCard={(e) => (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">{e.statement || '—'}</p>
+                  <p className="mt-0.5 text-xs text-ink-subtle">
+                    {toDate(e.date) ? formatDate(e.date) : e.date || '—'}
+                    {e.account && <> · {e.account}</>}
+                  </p>
+                </div>
+                <div className="shrink-0 text-end text-sm">
+                  {!!e.debit && (
+                    <p>
+                      <span className="text-xs text-ink-subtle">مدين </span>
+                      <span className="num font-semibold">{formatNumber(e.debit)}</span>
+                    </p>
+                  )}
+                  {!!e.credit && (
+                    <p>
+                      <span className="text-xs text-ink-subtle">دائن </span>
+                      <span className="num font-semibold">{formatNumber(e.credit)}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            mobileFooter={
+              <div className="flex justify-between">
+                <span>الإجمالي</span>
+                <span className="num">
+                  {formatNumber(totals.debit)} / {formatNumber(totals.credit)}
+                </span>
+              </div>
+            }
             empty={{ title: 'لا توجد قيود', description: 'ستظهر القيود المحاسبية هنا عند تسجيلها.', icon: 'ledger' }}
             footer={
               <tr>

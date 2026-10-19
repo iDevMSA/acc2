@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { db } from '../config/firebase';
+import { watchValue } from './offlineStore';
 import { Tone } from '../components/ui/primitives';
 
 // شكل فاتورة البيع كما يكتبها تطبيق Flutter في sales/{ownerUid}/invoices
@@ -72,8 +71,8 @@ export const useSalesInvoices = (uid: string | null) => {
 
   useEffect(() => {
     if (!uid) return;
-    return onValue(ref(db, `sales/${uid}/invoices`), (snapshot) => {
-      const data = snapshot.val() || {};
+    return watchValue(`sales/${uid}/invoices`, (value) => {
+      const data = value || {};
       setInvoices(Object.entries(data).map(([id, inv]: [string, any]) => ({ id, ...inv })));
       setLoading(false);
     });

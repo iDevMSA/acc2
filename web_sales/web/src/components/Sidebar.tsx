@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import Icon from './ui/Icon';
 import { cx } from './ui/primitives';
 import { NAV_GROUPS } from './layout/navigation';
+import InstallButton from './pwa/InstallButton';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -51,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed: collapsedPref, onToggle, m
       )}
       <aside
         className={cx(
-          'fixed inset-y-0 start-0 z-40 flex h-screen shrink-0 flex-col bg-nav text-nav-text transition-[width,transform] duration-200 lg:static',
+          'fixed inset-y-0 start-0 z-40 flex h-[100dvh] shrink-0 flex-col bg-nav text-nav-text transition-[width,transform] duration-200 lg:static',
           mobileOpen ? 'shadow-pop' : 'max-lg:ltr:-translate-x-full max-lg:rtl:translate-x-full',
           collapsed ? 'w-[72px]' : 'w-64',
         )}
@@ -124,6 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed: collapsedPref, onToggle, m
 
         {/* المستخدم */}
         <div className="border-t border-white/5 p-3">
+          <InstallButton variant="dark" compact={collapsed} className={cx('mb-2', collapsed && 'mx-auto')} />
           <div className={cx('flex items-center gap-3 rounded-lg p-2', collapsed && 'flex-col')}>
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-semibold text-white">
               {(user?.email || companyName).charAt(0).toUpperCase()}

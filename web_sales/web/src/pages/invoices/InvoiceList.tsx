@@ -171,6 +171,7 @@ const InvoiceList: React.FC = () => {
     {
       key: 'payment',
       header: 'الدفع',
+      className: 'hidden lg:table-cell',
       render: (inv) => <Badge tone="neutral">{PAYMENT_LABELS[paymentOf(inv)]}</Badge>,
     },
     {
@@ -222,8 +223,8 @@ const InvoiceList: React.FC = () => {
 
       <Card className="overflow-hidden">
         {/* شريط الفلاتر */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
-          <div className="relative min-w-[220px] flex-1">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3 sm:gap-3 sm:p-4">
+          <div className="relative w-full min-w-[220px] sm:w-auto sm:flex-1">
             <Icon
               name="search"
               size={16}
@@ -239,7 +240,11 @@ const InvoiceList: React.FC = () => {
               className="field-input py-2 ps-9"
             />
           </div>
-          <div className="flex rounded-lg border border-line-strong bg-surface p-0.5" role="group" aria-label="الفترة">
+          <div
+            className="flex w-full rounded-lg border border-line-strong bg-surface p-0.5 sm:w-auto"
+            role="group"
+            aria-label="الفترة"
+          >
             {PERIODS.map((p) => (
               <button
                 key={p.value}
@@ -248,7 +253,7 @@ const InvoiceList: React.FC = () => {
                   setLimit(PAGE_SIZE);
                 }}
                 className={cx(
-                  'h-8 rounded-md px-3 text-xs font-medium transition',
+                  'h-9 flex-1 whitespace-nowrap rounded-md px-3 text-xs font-medium transition sm:h-8 sm:flex-none',
                   period === p.value ? 'bg-brand-600 text-white' : 'text-ink-muted hover:bg-slate-100',
                 )}
               >
@@ -259,7 +264,7 @@ const InvoiceList: React.FC = () => {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as InvoiceStatus | 'all')}
-            className="field-input w-auto py-2"
+            className="field-input min-w-0 flex-1 py-2 sm:w-auto sm:flex-none"
             aria-label="الحالة"
           >
             <option value="all">كل الحالات</option>
@@ -272,7 +277,7 @@ const InvoiceList: React.FC = () => {
           <select
             value={payment}
             onChange={(e) => setPayment(e.target.value as PaymentMethod | 'all')}
-            className="field-input w-auto py-2"
+            className="field-input min-w-0 flex-1 py-2 sm:w-auto sm:flex-none"
             aria-label="طريقة الدفع"
           >
             <option value="all">كل طرق الدفع</option>
@@ -287,8 +292,10 @@ const InvoiceList: React.FC = () => {
             icon="download"
             onClick={() => exportCsv(filtered)}
             disabled={filtered.length === 0}
+            aria-label="تصدير CSV"
+            className="px-3 sm:px-4"
           >
-            تصدير CSV
+            <span className="hidden sm:inline">تصدير CSV</span>
           </Button>
         </div>
 
@@ -298,6 +305,32 @@ const InvoiceList: React.FC = () => {
           rowKey={(inv) => inv.id}
           loading={loading}
           onRowClick={setSelected}
+          mobileCard={(inv) => {
+            const meta = STATUS_META[statusOf(inv)];
+            const cancelled = statusOf(inv) === 'cancelled';
+            return (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">{inv.customerName || 'عميل نقدي'}</p>
+                  <p className="num mt-0.5 truncate text-xs text-brand-700">{inv.number || inv.id}</p>
+                  <p className="mt-1 text-xs text-ink-subtle">
+                    {formatDate(inv.createdAt || inv.date, { dateStyle: 'medium', timeStyle: 'short' })} ·{' '}
+                    {PAYMENT_LABELS[paymentOf(inv)]}
+                  </p>
+                </div>
+                <div className="shrink-0 text-end">
+                  <p className={cx('num font-semibold', cancelled ? 'text-ink-faint line-through' : 'text-ink')}>
+                    {formatNumber(invoiceAmounts(inv).total)}
+                  </p>
+                  {meta && (
+                    <Badge tone={meta.tone} className="mt-1">
+                      {meta.label}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            );
+          }}
           empty={
             filtersActive
               ? { title: 'لا توجد فواتير مطابقة', description: 'جرّب تغيير الفترة أو الفلاتر.', icon: 'filter' }

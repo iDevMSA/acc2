@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from '../Sidebar';
+import BottomNav from './BottomNav';
+import { OfflineBanner, UpdateToast } from '../pwa/StatusBanners';
 import Icon from '../ui/Icon';
 import { useApp } from '../../context/AppContext';
 import { NAV_GROUPS } from './navigation';
@@ -80,7 +82,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas">
+    <div className="flex h-[100dvh] overflow-hidden bg-canvas">
       <Sidebar
         collapsed={collapsed}
         onToggle={toggle}
@@ -89,9 +91,14 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenu={() => setMobileOpen(true)} />
+        <OfflineBanner />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</div>
+          <div className="mx-auto w-full max-w-[1400px] px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 md:pb-7 lg:px-8 lg:pt-7">
+            {children}
+          </div>
         </main>
+        <BottomNav />
+        <UpdateToast />
       </div>
     </div>
   );

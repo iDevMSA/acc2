@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '../config/firebase';
+import { auth } from '../config/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, onValue } from 'firebase/database';
+import { clearOfflineCache, watchValue } from '../lib/offlineStore';
 
 interface User {
   uid: string;
@@ -33,9 +33,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
         // تحميل بيانات الشركة
-        const settingsRef = ref(db, `users/${currentUser.uid}/settings`);
-        onValue(settingsRef, (snapshot) => {
-          const data = snapshot.val();
+        watchValue(`users/${currentUser.uid}/settings`, (data) => {
           if (data) {
             setCompanyInfo(data);
             setCurrency(data.currency || 'SAR');
@@ -52,6 +50,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = async () => {
     await signOut(auth);
+    await clearOfflineCache();
   };
 
   return (

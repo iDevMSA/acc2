@@ -131,7 +131,7 @@ const Dashboard: React.FC = () => {
                 const isToday = d === week[week.length - 1];
                 return (
                   <div key={d.date.toISOString()} className="group flex flex-1 flex-col items-center gap-2">
-                    <div className="flex h-56 w-full items-end">
+                    <div className="flex h-40 w-full items-end sm:h-56">
                       <div
                         className={`w-full rounded-t-md transition ${isToday ? 'bg-brand-600' : 'bg-brand-200 group-hover:bg-brand-300'}`}
                         style={{ height: `${Math.max((d.total / weekMax) * 100, d.total > 0 ? 4 : 1.5)}%` }}
@@ -167,6 +167,20 @@ const Dashboard: React.FC = () => {
             columns={columns}
             rows={recent}
             rowKey={(inv) => inv.id}
+            mobileCard={(inv) => (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">{inv.customerName || 'عميل نقدي'}</p>
+                  <p className="mt-0.5 text-xs text-ink-subtle">
+                    <span className="num">{inv.number || inv.id}</span> · {formatTime(inv.createdAt || inv.date)}
+                  </p>
+                </div>
+                <p className="shrink-0">
+                  <span className="num font-semibold text-ink">{formatNumber(invoiceTotal(inv))}</span>{' '}
+                  <span className="text-xs text-ink-subtle">{currency}</span>
+                </p>
+              </div>
+            )}
             empty={{
               title: 'لا توجد فواتير اليوم',
               description: 'ستظهر هنا الفواتير المغلقة من نقاط البيع فور مزامنتها.',

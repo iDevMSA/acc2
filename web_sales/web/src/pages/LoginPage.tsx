@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { BrandMark } from '../components/Sidebar';
 import { Button } from '../components/ui/primitives';
 import Icon, { IconName } from '../components/ui/Icon';
+import InstallButton from '../components/pwa/InstallButton';
 
 const features: Array<{ icon: IconName; title: string; text: string }> = [
   { icon: 'receipt', title: 'مبيعات متزامنة', text: 'فواتير نقاط البيع تصل لحظياً من التطبيق.' },
@@ -36,7 +37,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="grid min-h-screen bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+    <div className="grid min-h-[100dvh] bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       {/* النموذج */}
       <div className="flex flex-col px-6 py-8 sm:px-12">
         <div className="flex items-center gap-3">
@@ -106,6 +107,8 @@ const LoginPage: React.FC = () => {
               {loading ? 'جاري التحميل...' : 'تسجيل الدخول'}
             </Button>
           </form>
+
+          <InstallButton className="mt-4 justify-center" />
         </div>
 
         <p className="flex items-center gap-2 text-xs text-ink-faint">

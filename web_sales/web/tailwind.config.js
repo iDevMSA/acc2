@@ -7,7 +7,6 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ['"IBM Plex Sans Arabic"', 'system-ui', '-apple-system', 'Segoe UI', 'Tahoma', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'ui-monospace', 'Menlo', 'Consolas', 'monospace'],
       },
       colors: {
         brand: {
