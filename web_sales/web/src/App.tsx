@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Accounting from './pages/Accounting';
 import Invoices from './pages/Invoices';
 import Reports from './pages/Reports';
+import Taxes from './pages/Taxes';
 import Sidebar from './components/Sidebar';
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -71,6 +72,14 @@ function App() {
             element={
               <ProtectedLayout>
                 <Reports />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/taxes"
+            element={
+              <ProtectedLayout>
+                <Taxes />
               </ProtectedLayout>
             }
           />

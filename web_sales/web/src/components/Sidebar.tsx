@@ -11,6 +11,7 @@ const Sidebar: React.FC = () => {
     { path: '/invoices', label: 'الفواتير', icon: '🧾' },
     { path: '/accounting', label: 'المحاسبة', icon: '📋' },
     { path: '/reports', label: 'التقارير', icon: '📈' },
+    { path: '/taxes', label: 'الضرائب', icon: '🧮' },
   ];
 
   return (
