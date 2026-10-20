@@ -4,7 +4,7 @@ import Sidebar from '../Sidebar';
 import BottomNav from './BottomNav';
 import { OfflineBanner, UpdateToast } from '../pwa/StatusBanners';
 import Icon from '../ui/Icon';
-import { useApp } from '../../context/AppContext';
+import { useLedger } from '../../context/LedgerContext';
 import { NAV_GROUPS, findNavItem } from './navigation';
 import { formatDate } from '../../lib/format';
 
@@ -20,7 +20,8 @@ const readCollapsed = () => {
 
 const Topbar: React.FC<{ onMenu: () => void }> = ({ onMenu }) => {
   const { pathname } = useLocation();
-  const { currency, companyInfo } = useApp();
+  // العملة الرئيسية المختارة في الإعدادات (وليست عملة نقاط البيع)
+  const { mainCurrency: currency, company: companyInfo } = useLedger();
   const item = findNavItem(pathname);
   const group = NAV_GROUPS.find((g) => g.items.some((i) => i === item));
 
