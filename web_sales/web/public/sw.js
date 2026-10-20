@@ -38,6 +38,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // Firebase وغيره يمرون مباشرة
   if (!url.pathname.startsWith(BASE)) return; // صفحات الموقع المضيف خارج التطبيق
+  // صفحات HTML مستقلة في نفس المجلد (admin.html، privacy.html ...) ليست من التطبيق
+  if (/\.html$/.test(url.pathname) && url.pathname !== INDEX) return;
 
   // التنقل بين الصفحات: الشبكة أولاً، وعند انقطاعها نعرض الواجهة المحفوظة
   if (request.mode === 'navigate') {
