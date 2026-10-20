@@ -1,180 +1,217 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { watchValue } from '../lib/offlineStore';
-import { useApp } from '../context/AppContext';
-import { Badge, Card, CardHeader, EmptyState, PageHeader, StatCard } from '../components/ui/primitives';
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useLedger } from '../context/LedgerContext';
+import { Button, Card, PageHeader, StatCard } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
-import { formatDate, formatNumber, toDate } from '../lib/format';
-import { calculateBalanceSheet, calculateIncomeStatement } from '../lib/statements';
+import Icon from '../components/ui/Icon';
+import { ConfirmModal } from '../components/ui/Modal';
+import { OperationFormModal } from '../components/ledger/LedgerForms';
+import { ExportButtons, PeriodPicker, SignedAmount } from '../components/ledger/ReportToolbar';
+import { formatDate, formatNumber } from '../lib/format';
+import { Operation, Period, accountLabel, inPeriod, periodFromPreset, periodText, sortByDate, totalsOf } from '../lib/ledger';
 
+// سجل القيود العام: كل قيود الهاتف والمنصة في مكان واحد (users/{uid}/operations)
 const Accounting: React.FC = () => {
-  const { user, currency } = useApp();
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [journal, setJournal] = useState<any[]>([]);
+  const { operations, accountsById, mainCurrency, deleteOperations, ready } = useLedger();
+  const [period, setPeriod] = useState<Period>(periodFromPreset('month'));
+  const [q, setQ] = useState('');
+  const [dir, setDir] = useState<'all' | 'in' | 'out'>('all');
+  const [currency, setCurrency] = useState('');
+  const [modal, setModal] = useState<{ open: boolean; op?: Operation | null }>({ open: false });
+  const [confirm, setConfirm] = useState<Operation | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
+  const currencies = useMemo(() => Array.from(new Set(operations.map((o) => o.currency))).sort(), [operations]);
 
-    // تحميل الحسابات
-    const unsubAccounts = watchValue(`users/${user.uid}/accounts`, (data) => {
-      if (data) {
-        setAccounts(Object.values(data as any));
-      }
-    });
+  const rows = useMemo(() => {
+    const s = q.trim();
+    return sortByDate(
+      operations.filter(
+        (o) =>
+          inPeriod(o.date, period) &&
+          (dir === 'all' || (dir === 'in' ? o.amount >= 0 : o.amount < 0)) &&
+          (!currency || o.currency === currency) &&
+          (!s || o.statement.includes(s) || accountsById[o.accountId]?.name.includes(s) || o.accountId.includes(s)),
+      ),
+      'desc',
+    );
+  }, [operations, period, dir, currency, q, accountsById]);
 
-    // تحميل السجل العام
-    const unsubJournal = watchValue(`users/${user.uid}/journal_entries`, (data) => {
-      if (data) {
-        setJournal(Object.values(data as any));
-      }
-    });
+  const totals = totalsOf(rows);
 
-    return () => {
-      unsubAccounts();
-      unsubJournal();
-    };
-  }, [user]);
-
-  const summary = useMemo(() => {
-    const bs = calculateBalanceSheet(journal);
-    const is = calculateIncomeStatement(journal);
-    return { assets: bs.assets, liabilities: bs.liabilities, revenue: is.revenue, expenses: is.expenses };
-  }, [journal]);
-
-  const totals = useMemo(
-    () => ({
-      debit: journal.reduce((s, e) => s + (e.debit || 0), 0),
-      credit: journal.reduce((s, e) => s + (e.credit || 0), 0),
-    }),
-    [journal],
-  );
-
-  const journalColumns: Array<Column<any>> = [
+  const columns: Array<Column<Operation>> = [
     {
       key: 'date',
       header: 'التاريخ',
-      className: 'w-40',
-      render: (e) => <span className="text-ink-muted">{toDate(e.date) ? formatDate(e.date) : e.date || '—'}</span>,
-    },
-    { key: 'statement', header: 'البيان', render: (e) => e.statement || '—' },
-    { key: 'account', header: 'الحساب', render: (e) => (e.account ? <Badge>{e.account}</Badge> : '—') },
-    {
-      key: 'debit',
-      header: 'مدين',
-      numeric: true,
-      className: 'w-36',
-      render: (e) => (e.debit ? formatNumber(e.debit) : '—'),
+      className: 'w-44',
+      render: (o) => <span className="text-ink-muted">{formatDate(o.date, { dateStyle: 'medium', timeStyle: 'short' })}</span>,
     },
     {
-      key: 'credit',
-      header: 'دائن',
+      key: 'acc',
+      header: 'الحساب',
+      render: (o) => (
+        <Link to={`/accounts/${o.accountId}`} onClick={(e) => e.stopPropagation()} className="font-medium text-brand-700 hover:underline">
+          {accountLabel(accountsById[o.accountId]) || o.accountId}
+        </Link>
+      ),
+    },
+    { key: 'st', header: 'البيان', render: (o) => o.statement || <span className="text-ink-faint">بدون بيان</span> },
+    {
+      key: 'amt',
+      header: 'المبلغ',
+      className: 'text-end',
+      render: (o) => <SignedAmount value={o.amount} currency={o.currency} />,
+    },
+    {
+      key: 'main',
+      header: `المعادل ${mainCurrency}`,
       numeric: true,
-      className: 'w-36',
-      render: (e) => (e.credit ? formatNumber(e.credit) : '—'),
+      render: (o) => formatNumber(o.amountUSD),
+    },
+    {
+      key: 'del',
+      header: '',
+      className: 'w-12',
+      render: (o) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirm(o);
+          }}
+          title="حذف"
+          className="grid h-8 w-8 place-items-center rounded-md text-ink-subtle hover:bg-danger-50 hover:text-danger-600"
+        >
+          <Icon name="trash" size={15} />
+        </button>
+      ),
     },
   ];
 
   return (
     <>
-      <PageHeader title="المحاسبة" description="دليل الحسابات والسجل العام للقيود" />
+      <PageHeader
+        title="قيود المحاسبة"
+        description="كل القيود من الهاتف والمنصة — أي قيد تضيفه أو تعدّله هنا يظهر على الهاتف فوراً"
+        actions={
+          <Button icon="plusSquare" onClick={() => setModal({ open: true })}>
+            قيد جديد
+          </Button>
+        }
+      />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <StatCard label="الأصول" value={formatNumber(summary.assets)} unit={currency} icon="building" tone="brand" />
+        <StatCard label="مجموع التحصيل (+)" value={formatNumber(totals.collected)} unit={mainCurrency} icon="trendUp" tone="success" />
+        <StatCard label="مجموع المصروفات (−)" value={formatNumber(totals.spent)} unit={mainCurrency} icon="coins" tone="danger" />
         <StatCard
-          label="الخصوم"
-          value={formatNumber(summary.liabilities)}
-          unit={currency}
+          label={totals.net >= 0 ? 'صافي الإيراد' : 'صافي الخسارة'}
+          value={formatNumber(Math.abs(totals.net))}
+          unit={mainCurrency}
           icon="scale"
-          tone="warning"
+          tone={totals.net >= 0 ? 'brand' : 'warning'}
         />
-        <StatCard
-          label="الإيرادات"
-          value={formatNumber(summary.revenue)}
-          unit={currency}
-          icon="trendUp"
-          tone="success"
-        />
-        <StatCard label="المصروفات" value={formatNumber(summary.expenses)} unit={currency} icon="coins" tone="danger" />
+        <StatCard label="عدد القيود" value={formatNumber(totals.count, 0)} icon="receipt" tone="info" hint={periodText(period)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        {/* دليل الحسابات */}
-        <Card className="flex max-h-[640px] flex-col overflow-hidden">
-          <CardHeader title="دليل الحسابات" subtitle={`${formatNumber(accounts.length, 0)} حساب`} />
-          <div className="flex-1 overflow-y-auto">
-            {accounts.length > 0 ? (
-              <ul className="divide-y divide-line">
-                {accounts.map((acc, idx) => (
-                  <li key={idx} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-ink">{acc.name || acc.code}</p>
-                      {acc.code && acc.name && <p className="num text-xs text-ink-subtle">{acc.code}</p>}
-                    </div>
-                    <Badge tone="neutral">{acc.category || 'حساب عام'}</Badge>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState icon="ledger" title="لا توجد حسابات" description="أضف الحسابات من التطبيق لتظهر هنا." />
-            )}
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Icon name="search" size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-ink-faint" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="بحث في البيان أو الحساب"
+                className="h-9 w-60 rounded-lg border border-line-strong bg-surface pe-3 ps-9 text-sm shadow-sm"
+              />
+            </div>
+            <select
+              value={dir}
+              onChange={(e) => setDir(e.target.value as typeof dir)}
+              className="h-9 rounded-lg border border-line-strong bg-surface pe-8 ps-3 text-sm shadow-sm"
+            >
+              <option value="all">لنا ولهم</option>
+              <option value="in">لنا فقط (+)</option>
+              <option value="out">لهم فقط (−)</option>
+            </select>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="h-9 rounded-lg border border-line-strong bg-surface pe-8 ps-3 text-sm shadow-sm"
+            >
+              <option value="">كل العملات</option>
+              {currencies.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
-        </Card>
+          <div className="flex flex-wrap items-center gap-2">
+            <PeriodPicker value={period} onChange={setPeriod} />
+            <ExportButtons
+              disabled={!rows.length}
+              build={() => ({
+                title: 'قيود المحاسبة',
+                subtitle: periodText(period),
+                summary: [
+                  ['التحصيل', formatNumber(totals.collected)],
+                  ['المصروفات', formatNumber(totals.spent)],
+                  ['الصافي', formatNumber(totals.net)],
+                ],
+                columns: ['التاريخ', 'الحساب', 'البيان', 'المبلغ', 'العملة', `المعادل ${mainCurrency}`],
+                numericColumns: [3, 5],
+                rows: rows.map((o) => [
+                  formatDate(o.date),
+                  accountLabel(accountsById[o.accountId]),
+                  o.statement,
+                  o.amount,
+                  o.currency,
+                  o.amountUSD,
+                ]),
+                footer: [['الإجمالي', '', '', '', '', totals.net]],
+              })}
+            />
+          </div>
+        </div>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(o) => o.id}
+          loading={!ready}
+          maxHeight="calc(100dvh - 380px)"
+          onRowClick={(o) => setModal({ open: true, op: o })}
+          empty={{ title: 'لا توجد قيود في هذه الفترة', description: 'غيّر الفترة أو أضف قيداً جديداً.', icon: 'receipt' }}
+          mobileCard={(o) => (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-ink">{accountsById[o.accountId]?.name || o.accountId}</p>
+                <p className="truncate text-xs text-ink-subtle">
+                  {formatDate(o.date)} · {o.statement || 'بدون بيان'}
+                </p>
+              </div>
+              <SignedAmount value={o.amount} currency={o.currency} />
+            </div>
+          )}
+          footer={
+            <tr>
+              <td colSpan={3}>الإجمالي ({formatNumber(rows.length, 0)} قيد)</td>
+              <td />
+              <td className="text-end">
+                <span className="num">{formatNumber(totals.net)}</span>
+              </td>
+              <td />
+            </tr>
+          }
+        />
+      </Card>
 
-        {/* السجل العام */}
-        <Card className="overflow-hidden">
-          <CardHeader title="السجل العام" subtitle={`${formatNumber(journal.length, 0)} قيد`} />
-          <DataTable
-            columns={journalColumns}
-            rows={journal}
-            rowKey={(_, i) => String(i)}
-            maxHeight="560px"
-            mobileCard={(e) => (
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-ink">{e.statement || '—'}</p>
-                  <p className="mt-0.5 text-xs text-ink-subtle">
-                    {toDate(e.date) ? formatDate(e.date) : e.date || '—'}
-                    {e.account && <> · {e.account}</>}
-                  </p>
-                </div>
-                <div className="shrink-0 text-end text-sm">
-                  {!!e.debit && (
-                    <p>
-                      <span className="text-xs text-ink-subtle">مدين </span>
-                      <span className="num font-semibold">{formatNumber(e.debit)}</span>
-                    </p>
-                  )}
-                  {!!e.credit && (
-                    <p>
-                      <span className="text-xs text-ink-subtle">دائن </span>
-                      <span className="num font-semibold">{formatNumber(e.credit)}</span>
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-            mobileFooter={
-              <div className="flex justify-between">
-                <span>الإجمالي</span>
-                <span className="num">
-                  {formatNumber(totals.debit)} / {formatNumber(totals.credit)}
-                </span>
-              </div>
-            }
-            empty={{ title: 'لا توجد قيود', description: 'ستظهر القيود المحاسبية هنا عند تسجيلها.', icon: 'ledger' }}
-            footer={
-              <tr>
-                <td colSpan={3}>الإجمالي</td>
-                <td className="text-end">
-                  <span className="num">{formatNumber(totals.debit)}</span>
-                </td>
-                <td className="text-end">
-                  <span className="num">{formatNumber(totals.credit)}</span>
-                </td>
-              </tr>
-            }
-          />
-        </Card>
-      </div>
+      <OperationFormModal open={modal.open} operation={modal.op} onClose={() => setModal({ open: false })} />
+      <ConfirmModal
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        title="حذف القيد"
+        message="سيُحذف القيد من المنصة وتطبيق الهاتف."
+        onConfirm={() => confirm && deleteOperations([confirm.id])}
+      />
     </>
   );
 };

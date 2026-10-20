@@ -7,6 +7,9 @@ const BUILD = '__BUILD_ID__';
 const PRECACHE = [] /* __PRECACHE__ */;
 
 const SHELL_CACHE = 'erp-shell-' + BUILD;
+// مسار التطبيق (/ أو /monsati/erp/ عند استضافته داخل موقع آخر)
+const BASE = new URL(self.registration.scope).pathname;
+const INDEX = BASE + 'index.html';
 const RUNTIME_CACHE = 'erp-runtime';
 
 self.addEventListener('install', (event) => {
@@ -34,16 +37,19 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // Firebase وغيره يمرون مباشرة
+  if (!url.pathname.startsWith(BASE)) return; // صفحات الموقع المضيف خارج التطبيق
+  // صفحات HTML مستقلة في نفس المجلد (admin.html، privacy.html ...) ليست من التطبيق
+  if (/\.html$/.test(url.pathname) && url.pathname !== INDEX) return;
 
   // التنقل بين الصفحات: الشبكة أولاً، وعند انقطاعها نعرض الواجهة المحفوظة
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          if (res.ok) caches.open(SHELL_CACHE).then((c) => c.put('/index.html', res.clone()));
+          if (res.ok) caches.open(SHELL_CACHE).then((c) => c.put(INDEX, res.clone()));
           return res;
         })
-        .catch(() => fromShell('/index.html'))
+        .catch(() => fromShell(INDEX))
     );
     return;
   }

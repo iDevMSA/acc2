@@ -1,10 +1,19 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
+import { LedgerProvider } from './context/LedgerContext';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Accounting from './pages/Accounting';
+import Accounts from './pages/Accounts';
+import AccountDetail from './pages/AccountDetail';
 import Invoices from './pages/Invoices';
+import Cashboxes from './pages/Cashboxes';
+import Vouchers from './pages/Vouchers';
+import Warehouses from './pages/Warehouses';
+import Cheques from './pages/Cheques';
+import Hub from './pages/Hub';
+import Settings from './pages/Settings';
 import Reports from './pages/Reports';
 import { BrandMark } from './components/Sidebar';
 import AppShell from './components/layout/AppShell';
@@ -27,47 +36,38 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return <Navigate to="/login" />;
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <LedgerProvider>
+      <AppShell>{children}</AppShell>
+    </LedgerProvider>
+  );
 };
+
+const PAGES: Array<[string, React.ReactNode]> = [
+  ['/', <Dashboard />],
+  ['/hub', <Hub />],
+  ['/settings', <Settings />],
+  ['/accounts', <Accounts />],
+  ['/accounts/:id', <AccountDetail />],
+  ['/accounting', <Accounting />],
+  ['/cashboxes', <Cashboxes />],
+  ['/vouchers', <Vouchers />],
+  ['/cheques', <Cheques />],
+  ['/warehouses', <Warehouses />],
+  ['/invoices', <Invoices />],
+  ['/reports', <Reports />],
+];
 
 function App() {
   return (
     <AppProvider>
-      <Router>
+      <Router basename={process.env.PUBLIC_URL || undefined}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedLayout>
-                <Dashboard />
-              </ProtectedLayout>
-            }
-          />
-          <Route
-            path="/accounting"
-            element={
-              <ProtectedLayout>
-                <Accounting />
-              </ProtectedLayout>
-            }
-          />
-          <Route
-            path="/invoices"
-            element={
-              <ProtectedLayout>
-                <Invoices />
-              </ProtectedLayout>
-            }
-          />
-          <Route
-            path="/reports"
-            element={
-              <ProtectedLayout>
-                <Reports />
-              </ProtectedLayout>
-            }
-          />
+          {PAGES.map(([path, page]) => (
+            <Route key={path} path={path} element={<ProtectedLayout>{page}</ProtectedLayout>} />
+          ))}
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
     </AppProvider>

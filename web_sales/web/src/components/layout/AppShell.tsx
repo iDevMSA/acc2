@@ -4,8 +4,8 @@ import Sidebar from '../Sidebar';
 import BottomNav from './BottomNav';
 import { OfflineBanner, UpdateToast } from '../pwa/StatusBanners';
 import Icon from '../ui/Icon';
-import { useApp } from '../../context/AppContext';
-import { NAV_GROUPS } from './navigation';
+import { useLedger } from '../../context/LedgerContext';
+import { NAV_GROUPS, findNavItem } from './navigation';
 import { formatDate } from '../../lib/format';
 
 const COLLAPSE_KEY = 'erp.sidebarCollapsed';
@@ -20,9 +20,10 @@ const readCollapsed = () => {
 
 const Topbar: React.FC<{ onMenu: () => void }> = ({ onMenu }) => {
   const { pathname } = useLocation();
-  const { currency, companyInfo } = useApp();
-  const group = NAV_GROUPS.find((g) => g.items.some((i) => i.path === pathname));
-  const item = group?.items.find((i) => i.path === pathname);
+  // العملة الرئيسية المختارة في الإعدادات (وليست عملة نقاط البيع)
+  const { mainCurrency: currency, company: companyInfo } = useLedger();
+  const item = findNavItem(pathname);
+  const group = NAV_GROUPS.find((g) => g.items.some((i) => i === item));
 
   return (
     <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/90 px-4 backdrop-blur sm:px-6 lg:px-8">
