@@ -61,7 +61,7 @@ const PAGES: Array<[string, React.ReactNode]> = [
 function App() {
   return (
     <AppProvider>
-      <Router>
+      <Router basename={process.env.PUBLIC_URL || undefined}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           {PAGES.map(([path, page]) => (

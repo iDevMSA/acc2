@@ -6,7 +6,13 @@ const crypto = require('crypto');
 const buildDir = path.join(__dirname, '..', 'build');
 const manifest = JSON.parse(fs.readFileSync(path.join(buildDir, 'asset-manifest.json'), 'utf8'));
 
-const files = new Set(['/', '/index.html', '/manifest.json', '/favicon.ico', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png']);
+// PUBLIC_URL يحدد مسار الاستضافة (فارغ = جذر الموقع، أو /monsati/erp داخل موقع خوارزم)
+const base = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+const files = new Set(
+  ['/', '/index.html', '/manifest.json', '/favicon.ico', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'].map(
+    (f) => base + f,
+  ),
+);
 for (const file of Object.values(manifest.files)) {
   if (file.endsWith('.map') || file.endsWith('.LICENSE.txt')) continue;
   // الخطوط: woff2 يكفي لكل المتصفحات الحديثة، ونحفظ مسبقاً الحروف العربية واللاتينية فقط
