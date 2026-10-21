@@ -52,6 +52,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'نقطة البيع',
+    items: [
+      { path: '/pos', label: 'شاشة الكاشير', icon: 'barcode', description: 'البيع بمسح الباركود بكاميرا الهاتف' },
+      { path: '/pos-admin', label: 'إدارة نقطة البيع', icon: 'store', description: 'الفروع والمخازن والصناديق وحسابات الكاشير والمنتجات' },
+    ],
+  },
+  {
     label: 'الموظفون',
     items: [{ path: '/payroll', label: 'الرواتب والأجور', icon: 'users', description: 'بيانات الموظفين وكشوف الرواتب' }],
   },

@@ -1,7 +1,8 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { LedgerProvider } from './context/LedgerContext';
+import { PosProvider } from './context/PosContext';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Accounting from './pages/Accounting';
@@ -20,12 +21,15 @@ import Notes from './pages/Notes';
 import Payroll from './pages/Payroll';
 import Rates from './pages/Rates';
 import Charts from './pages/Charts';
+import PosAdmin from './pages/pos/PosAdmin';
+import Cashier from './pages/pos/Cashier';
 import { BrandMark } from './components/Sidebar';
 import AppShell from './components/layout/AppShell';
 import { Spinner } from './components/ui/primitives';
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useApp();
+  const { user, loading, isCashier } = useApp();
+  const { pathname } = useLocation();
 
   if (loading) {
     return (
@@ -41,9 +45,23 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return <Navigate to="/login" />;
   }
 
+  // الكاشير لا يرى إلا واجهة نقطة البيع على صندوقه (لا صلاحية له على حسابات المالك)
+  if (isCashier) {
+    if (pathname !== '/pos') return <Navigate to="/pos" replace />;
+    return (
+      <PosProvider>
+        <main className="min-h-[100dvh] bg-canvas px-3 py-3 sm:px-6 sm:py-5">
+          <Cashier />
+        </main>
+      </PosProvider>
+    );
+  }
+
   return (
     <LedgerProvider>
-      <AppShell>{children}</AppShell>
+      <PosProvider>
+        <AppShell>{children}</AppShell>
+      </PosProvider>
     </LedgerProvider>
   );
 };
@@ -66,6 +84,8 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/payroll', <Payroll />],
   ['/rates', <Rates />],
   ['/charts', <Charts />],
+  ['/pos-admin', <PosAdmin />],
+  ['/pos', <Cashier />],
 ];
 
 function App() {

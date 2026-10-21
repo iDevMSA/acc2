@@ -12,6 +12,8 @@
     "@types/node": "^16.18.126",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@zxing/browser": "0.2.1",
+    "@zxing/library": "0.23.0",
     "autoprefixer": "10.6.1",
     "firebase": "12.19.0",
     "postcss": "8.5.28",

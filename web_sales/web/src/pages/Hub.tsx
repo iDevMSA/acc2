@@ -29,6 +29,8 @@ const SECTIONS: Section[] = [
       { label: 'فواتير مرجع البيع', icon: 'refresh', to: '/trade?kind=saleReturn' },
       { label: 'عروض الأسعار والطلبيات', icon: 'tag', to: '/trade?view=quotes' },
       { label: 'الإشعارات المدينة والدائنة', icon: 'mail', to: '/notes' },
+      { label: 'شاشة الكاشير (مسح الباركود)', icon: 'barcode', to: '/pos' },
+      { label: 'إدارة نقطة البيع', icon: 'store', to: '/pos-admin' },
       { label: 'فواتير نقاط البيع', icon: 'receipt', to: '/invoices' },
       { label: 'سند قبض من زبون', icon: 'arrowIn', to: '/vouchers?type=receipt&party=customer' },
       { label: 'الشيكات الواردة', icon: 'cheque', to: '/cheques' },
