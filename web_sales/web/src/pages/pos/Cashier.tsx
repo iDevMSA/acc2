@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal';
 import { Field, FormError, Input, Segmented } from '../../components/ui/Form';
 import BarcodeScanner from '../../components/pos/BarcodeScanner';
 import { ProductQuickAdd } from '../../components/pos/PosForms';
+import ProductImage from '../../components/pos/ProductImage';
 import { CatalogEntry, PAY_LABELS, PayMethod, PosInvoiceItem, PosProduct, PosSession, cartTotals, priceForBranch } from '../../lib/pos';
 import { formatNumber, formatTime } from '../../lib/format';
 
@@ -263,9 +264,7 @@ const Cashier: React.FC = () => {
                       onClick={() => addProduct(p)}
                       className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface text-start shadow-card transition active:scale-[0.98]"
                     >
-                      <div className="grid h-24 place-items-center bg-slate-50">
-                        {img ? <img src={img} alt="" loading="lazy" className="h-full w-full object-contain p-1" /> : <Icon name="box" size={28} className="text-ink-faint" />}
-                      </div>
+                      <ProductImage src={img} className="h-28 w-full p-1" iconSize={28} />
                       <div className="p-2">
                         <p className="line-clamp-2 text-xs font-medium leading-5">{p.name}</p>
                         <div className="mt-1 flex items-center justify-between">
@@ -344,7 +343,7 @@ const Cashier: React.FC = () => {
           </div>
         ) : unknown?.entry ? (
           <div className="flex gap-4">
-            {unknown.entry.imageUrl && <img src={unknown.entry.imageUrl} alt="" className="h-28 w-28 shrink-0 rounded-lg bg-slate-50 object-contain" />}
+            {unknown.entry.imageUrl && <ProductImage src={unknown.entry.imageUrl} className="h-28 w-28 shrink-0 rounded-lg border border-line" />}
             <div className="min-w-0 text-sm">
               <p className="font-semibold">{unknown.entry.name}</p>
               {unknown.entry.quantity && <p className="text-ink-subtle">{unknown.entry.quantity}</p>}

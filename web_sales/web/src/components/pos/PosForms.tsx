@@ -4,7 +4,9 @@ import { Button } from '../ui/primitives';
 import { Field, FormError, Input, Select } from '../ui/Form';
 import Icon from '../ui/Icon';
 import BarcodeScanner from './BarcodeScanner';
+import ProductImage from './ProductImage';
 import { usePos } from '../../context/PosContext';
+import { SearchItem, arabicProductName, quantityAr, searchProducts } from '../../lib/productLookup';
 import { BUSINESS_LABELS, BusinessType, CatalogEntry, PosBranch, PosEmployee, PosProduct, CashRegister, PosWarehouse } from '../../lib/pos';
 
 const num = (v: string) => v.replace(/[^0-9.]/g, '');
@@ -380,9 +382,7 @@ export const ProductModal: React.FC<{
           });
         }}
       >
-        <div className="grid h-36 place-items-center overflow-hidden rounded-xl border border-line bg-slate-50">
-          {f.imageUrl ? <img src={f.imageUrl} alt="" className="h-full w-full object-contain p-1" /> : <Icon name="box" size={36} className="text-ink-faint" />}
-        </div>
+        <ProductImage src={f.imageUrl || undefined} className="h-36 rounded-xl border border-line" iconSize={36} />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="الباركود" className="sm:col-span-2" hint={looking ? 'نبحث في قاعدة المنتجات العالمية...' : hint || 'امسح أو اكتب الباركود ليُعبّأ الاسم والصورة تلقائياً'}>
             <div className="flex gap-2">
@@ -451,3 +451,201 @@ export const ProductQuickAdd: React.FC<{
   defaultWarehouseId: string;
   onSaved: (p: PosProduct) => void;
 }> = (props) => <ProductModal {...props} />;
+
+/* ───────── استيراد منتجات بالجملة من قاعدة المنتجات العالمية ───────── */
+
+const COUNTRY_OPTIONS: Array<[string, string]> = [
+  ['', 'كل الدول'],
+  ['sa', 'السعودية'],
+  ['ps', 'فلسطين'],
+  ['jo', 'الأردن'],
+  ['ae', 'الإمارات'],
+  ['eg', 'مصر'],
+  ['kw', 'الكويت'],
+  ['qa', 'قطر'],
+  ['bh', 'البحرين'],
+  ['om', 'عُمان'],
+  ['iq', 'العراق'],
+  ['lb', 'لبنان'],
+  ['sy', 'سوريا'],
+  ['ye', 'اليمن'],
+  ['ma', 'المغرب'],
+  ['dz', 'الجزائر'],
+  ['tn', 'تونس'],
+  ['tr', 'تركيا'],
+];
+
+export const ImportProductsModal: React.FC<{ open: boolean; onClose: () => void; defaultWarehouseId?: string }> = ({ open, onClose, defaultWarehouseId }) => {
+  const { warehouses, branches, products, saveProduct } = usePos();
+  const [q, setQ] = useState('');
+  const [country, setCountry] = useState('');
+  const [warehouseId, setWarehouseId] = useState('');
+  const [items, setItems] = useState<SearchItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const [picked, setPicked] = useState<Record<string, { price: string; qty: string }>>({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const search = async (p = 1) => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const r = await searchProducts(q, country, p);
+      setItems((x) => (p === 1 ? r.items : [...x, ...r.items.filter((i) => !x.some((y) => y.barcode === i.barcode))]));
+      setPage(r.page);
+      setPageCount(r.pageCount);
+    } catch (e: any) {
+      setErr(e?.message || 'تعذّر البحث');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setWarehouseId(defaultWarehouseId || warehouses[0]?.id || '');
+    setPicked({});
+    setErr(null);
+    setSaving(null);
+    if (!items.length) search(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const exists = (barcode: string) => products.some((p) => p.barcode === barcode && p.warehouseId === warehouseId);
+  const toggle = (b: string) =>
+    setPicked((p) => {
+      const n = { ...p };
+      if (n[b]) delete n[b];
+      else n[b] = { price: '', qty: '' };
+      return n;
+    });
+  const count = Object.keys(picked).length;
+
+  const importPicked = async () => {
+    if (!warehouseId) return setErr('اختر المخزن');
+    setErr(null);
+    let done = 0;
+    for (const [barcode, v] of Object.entries(picked)) {
+      const it = items.find((i) => i.barcode === barcode);
+      if (!it || exists(barcode)) continue;
+      setSaving(`جاري إضافة ${++done} من ${count}...`);
+      try {
+        const name = await arabicProductName(it);
+        await saveProduct(
+          { name, barcode, warehouseId, sellPrice: Number(v.price) || 0, quantity: Number(v.qty) || 0, category: it.category || null },
+          { imageUrl: it.imageUrl, brand: it.brand, source: 'Open Food Facts' },
+        );
+      } catch (e: any) {
+        setErr(e?.message || 'تعذّر حفظ بعض المنتجات');
+      }
+    }
+    setSaving(null);
+    setPicked({});
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="xl"
+      title="استيراد منتجات من قاعدة المنتجات العالمية"
+      subtitle="ابحث بالاسم أو اختر دولة لعرض أشهر منتجاتها، حدّد ما تبيعه وأدخل السعر — يُحفظ الاسم بالعربي مع الحجم والصورة بخلفية بيضاء"
+      footer={
+        <>
+          <span className="me-auto text-sm text-ink-subtle">{saving || (count ? `تم تحديد ${count} منتج` : '')}</span>
+          <Button variant="ghost" onClick={onClose}>
+            إغلاق
+          </Button>
+          <Button icon="plus" disabled={!count || !!saving} onClick={importPicked}>
+            إضافة المحدد للمخزن
+          </Button>
+        </>
+      }
+    >
+      <form
+        className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_160px_200px_auto]"
+        onSubmit={(e) => {
+          e.preventDefault();
+          search(1);
+        }}
+      >
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="مثال: مياه، كولا، حليب، شيبس، Pepsi..." />
+        <Select value={country} onChange={(e) => setCountry(e.target.value)}>
+          {COUNTRY_OPTIONS.map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </Select>
+        <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+          {warehouses.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name} — {branches.find((b) => b.id === w.branchId)?.name || ''}
+            </option>
+          ))}
+        </Select>
+        <Button type="submit" icon="search" disabled={loading}>
+          بحث
+        </Button>
+      </form>
+      <FormError message={err} />
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {items.map((it) => {
+          const sel = picked[it.barcode];
+          const has = exists(it.barcode);
+          return (
+            <div
+              key={it.barcode}
+              className={`flex flex-col overflow-hidden rounded-xl border bg-surface shadow-card ${sel ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-line'} ${has ? 'opacity-60' : ''}`}
+            >
+              <button type="button" disabled={has} onClick={() => toggle(it.barcode)} className="relative text-start">
+                <ProductImage src={it.imageUrl} className="h-32 w-full p-1" />
+                <span
+                  className={`absolute end-2 top-2 grid h-6 w-6 place-items-center rounded-full border ${sel ? 'border-brand-600 bg-brand-600 text-white' : 'border-line-strong bg-white'}`}
+                >
+                  {sel && <Icon name="check" size={14} />}
+                </span>
+                <div className="p-2">
+                  <p className="line-clamp-2 text-xs font-medium leading-5">
+                    {it.nameAr || it.name} {quantityAr(it.quantity)}
+                  </p>
+                  <p className="num mt-0.5 text-[10px] text-ink-subtle">{has ? 'موجود في هذا المخزن' : it.barcode}</p>
+                </div>
+              </button>
+              {sel && (
+                <div className="grid grid-cols-2 gap-1 border-t border-line p-2">
+                  <input
+                    inputMode="decimal"
+                    placeholder="السعر"
+                    value={sel.price}
+                    onChange={(e) => setPicked((p) => ({ ...p, [it.barcode]: { ...p[it.barcode], price: num(e.target.value) } }))}
+                    className="num h-8 rounded-md border border-line-strong px-2 text-xs"
+                  />
+                  <input
+                    inputMode="decimal"
+                    placeholder="الكمية"
+                    value={sel.qty}
+                    onChange={(e) => setPicked((p) => ({ ...p, [it.barcode]: { ...p[it.barcode], qty: num(e.target.value) } }))}
+                    className="num h-8 rounded-md border border-line-strong px-2 text-xs"
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {!items.length && !loading && <p className="py-10 text-center text-sm text-ink-subtle">لا نتائج — جرّب كلمة أخرى أو دولة أخرى</p>}
+      {loading && <p className="py-6 text-center text-sm text-ink-subtle">جاري البحث في قاعدة المنتجات...</p>}
+      {!loading && items.length > 0 && page < pageCount && (
+        <div className="mt-4 text-center">
+          <Button variant="secondary" onClick={() => search(page + 1)}>
+            عرض المزيد
+          </Button>
+        </div>
+      )}
+    </Modal>
+  );
+};

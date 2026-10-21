@@ -6,7 +6,8 @@ import DataTable, { Column } from '../../components/ui/DataTable';
 import Icon, { IconName } from '../../components/ui/Icon';
 import Modal, { ConfirmModal } from '../../components/ui/Modal';
 import { Field, FormError, Input, Select } from '../../components/ui/Form';
-import { BranchModal, CashierModal, ProductModal, RegisterModal, WarehouseModal } from '../../components/pos/PosForms';
+import { BranchModal, CashierModal, ImportProductsModal, ProductModal, RegisterModal, WarehouseModal } from '../../components/pos/PosForms';
+import ProductImage from '../../components/pos/ProductImage';
 import { BUSINESS_LABELS, CashRegister, PosBranch, PosEmployee, PosProduct, PosSession, PosWarehouse, ROLE_LABELS } from '../../lib/pos';
 import { formatDate, formatNumber } from '../../lib/format';
 
@@ -36,6 +37,7 @@ const PosAdmin: React.FC = () => {
   const [empM, setEmpM] = useState<{ open: boolean; v?: PosEmployee | null }>({ open: false });
   const [prodM, setProdM] = useState<{ open: boolean; v?: PosProduct | null }>({ open: false });
   const [transferM, setTransferM] = useState<PosProduct | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [confirm, setConfirm] = useState<{ title: string; message: string; run: () => Promise<void> } | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -155,9 +157,7 @@ const PosAdmin: React.FC = () => {
       header: 'المنتج',
       render: (p) => (
         <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-50">
-            {imgOf(p) ? <img src={imgOf(p)} alt="" loading="lazy" className="h-full w-full object-contain" /> : <Icon name="box" size={18} className="text-ink-faint" />}
-          </div>
+          <ProductImage src={imgOf(p)} className="h-11 w-11 shrink-0 rounded-lg border border-line" iconSize={18} />
           <div className="min-w-0">
             <p className="truncate font-medium">{p.name}</p>
             <p className="num text-xs text-ink-subtle">{p.barcode || 'بدون باركود'}</p>
@@ -206,7 +206,16 @@ const PosAdmin: React.FC = () => {
     warehouses: <Button icon="plus" disabled={!branches.length} onClick={() => setWhM({ open: true })}>مخزن جديد</Button>,
     registers: <Button icon="plus" disabled={!branches.length} onClick={() => setRegM({ open: true })}>صندوق جديد</Button>,
     cashiers: <Button icon="plus" disabled={!registers.length} onClick={() => setEmpM({ open: true })}>حساب كاشير جديد</Button>,
-    products: <Button icon="plus" disabled={!warehouses.length} onClick={() => setProdM({ open: true })}>منتج جديد</Button>,
+    products: (
+      <>
+        <Button variant="secondary" icon="download" disabled={!warehouses.length} onClick={() => setImportOpen(true)}>
+          استيراد من قاعدة المنتجات
+        </Button>
+        <Button icon="plus" disabled={!warehouses.length} onClick={() => setProdM({ open: true })}>
+          منتج جديد
+        </Button>
+      </>
+    ),
   };
 
   return (
@@ -320,6 +329,7 @@ const PosAdmin: React.FC = () => {
       <CashierModal open={empM.open} employee={empM.v} onClose={() => setEmpM({ open: false })} />
       <ProductModal open={prodM.open} product={prodM.v} onClose={() => setProdM({ open: false })} defaultWarehouseId={whFilter} />
       <TransferModal product={transferM} onClose={() => setTransferM(null)} />
+      <ImportProductsModal open={importOpen} onClose={() => setImportOpen(false)} defaultWarehouseId={whFilter} />
       <ConfirmModal open={!!confirm} onClose={() => setConfirm(null)} title={confirm?.title || ''} message={confirm?.message || ''} onConfirm={() => confirm?.run()} />
     </>
   );
