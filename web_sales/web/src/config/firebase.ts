@@ -1,9 +1,9 @@
-import { initializeApp } from 'firebase/app';
+import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectDatabaseEmulator, getDatabase } from 'firebase/database';
 
 // نفس الـ config من web_sales
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyDz-jDwiRUoJWd0_oHsZCLnlw--0PcDOXk",
   authDomain: "alaraby-4ccdd.firebaseapp.com",
   databaseURL: "https://alaraby-4ccdd-default-rtdb.firebaseio.com",
@@ -23,3 +23,17 @@ if (process.env.REACT_APP_FIREBASE_EMULATOR === '1') {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectDatabaseEmulator(db, '127.0.0.1', 9000);
 }
+
+/**
+ * Auth ثانوي لإنشاء حسابات الكاشير من لوحة المالك دون تسجيل خروج المالك
+ * (createUserWithEmailAndPassword على الـ Auth الأساسي يبدّل المستخدم الحالي).
+ */
+export const secondaryAuth = () => {
+  const existing = getApps().find((a) => a.name === 'cashier-admin');
+  const second: FirebaseApp = existing || initializeApp(firebaseConfig, 'cashier-admin');
+  const a = getAuth(second);
+  if (!existing && process.env.REACT_APP_FIREBASE_EMULATOR === '1') {
+    connectAuthEmulator(a, 'http://127.0.0.1:9099', { disableWarnings: true });
+  }
+  return a;
+};
