@@ -8,14 +8,18 @@ import { ExportButtons, PeriodPicker } from '../components/ledger/ReportToolbar'
 import { useAccountOptions } from '../components/ledger/LedgerForms';
 import { formatNumber } from '../lib/format';
 import { CATEGORY_LABELS, Period, periodFromPreset } from '../lib/ledger';
-import { REPORTS, REPORT_GROUPS, ReportContext } from '../lib/reports';
+import { ReportContext } from '../lib/reports';
+import { ALL_REPORTS as REPORTS, ALL_REPORT_GROUPS as REPORT_GROUPS } from '../lib/reportsExtra';
 import { ReportTable } from '../lib/export';
 
-const GROUP_ICONS: Record<string, 'ledger' | 'users' | 'wallet' | 'warehouse'> = {
+const GROUP_ICONS: Record<string, 'ledger' | 'users' | 'wallet' | 'warehouse' | 'receipt' | 'shield' | 'coins'> = {
   المحاسبة: 'ledger',
   الفهارس: 'users',
   النقدية: 'wallet',
   المخازن: 'warehouse',
+  'المبيعات والمشتريات': 'receipt',
+  الرقابة: 'shield',
+  'الرواتب والعملات': 'coins',
 };
 
 /** يعرض جدول التقرير كما سيُطبع: نفس الأعمدة والصفوف والإجماليات */
@@ -133,6 +137,11 @@ const Reports: React.FC = () => {
     items: ledger.items,
     moves: ledger.moves,
     cheques: ledger.cheques,
+    invoices: ledger.invoices,
+    notes: ledger.notes,
+    payrolls: ledger.payrolls,
+    rates: ledger.rates,
+    accountMeta: ledger.accountMeta,
     period: report.usesPeriod ? period : periodFromPreset('all'),
     accountId,
     category,

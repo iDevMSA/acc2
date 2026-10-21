@@ -7,6 +7,7 @@ import Icon from '../ui/Icon';
 import { useLedger } from '../../context/LedgerContext';
 import { NAV_GROUPS, findNavItem } from './navigation';
 import { formatDate } from '../../lib/format';
+import CommandPalette, { useCommandPalette } from './CommandPalette';
 
 const COLLAPSE_KEY = 'erp.sidebarCollapsed';
 
@@ -18,7 +19,7 @@ const readCollapsed = () => {
   }
 };
 
-const Topbar: React.FC<{ onMenu: () => void }> = ({ onMenu }) => {
+const Topbar: React.FC<{ onMenu: () => void; onSearch: () => void }> = ({ onMenu, onSearch }) => {
   const { pathname } = useLocation();
   // العملة الرئيسية المختارة في الإعدادات (وليست عملة نقاط البيع)
   const { mainCurrency: currency, company: companyInfo } = useLedger();
@@ -51,6 +52,15 @@ const Topbar: React.FC<{ onMenu: () => void }> = ({ onMenu }) => {
       </nav>
 
       <div className="flex items-center gap-2">
+        <button
+          onClick={onSearch}
+          title="بحث شامل (Ctrl+K)"
+          className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs text-ink-muted hover:bg-slate-50"
+        >
+          <Icon name="search" size={14} />
+          <span className="hidden sm:inline">بحث</span>
+          <kbd className="hidden rounded border border-line px-1 text-[10px] lg:inline">Ctrl K</kbd>
+        </button>
         <span className="hidden items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs text-ink-muted md:inline-flex">
           <Icon name="calendar" size={14} />
           {formatDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -68,6 +78,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
+  const palette = useCommandPalette();
 
   // إغلاق الدرج عند الانتقال لصفحة أخرى
   useEffect(() => setMobileOpen(false), [pathname]);
@@ -91,7 +102,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         onMobileClose={() => setMobileOpen(false)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onMenu={() => setMobileOpen(true)} />
+        <Topbar onMenu={() => setMobileOpen(true)} onSearch={() => palette.setOpen(true)} />
         <OfflineBanner />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1400px] px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 md:pb-7 lg:px-8 lg:pt-7">
@@ -100,6 +111,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </main>
         <BottomNav />
         <UpdateToast />
+        <CommandPalette open={palette.open} onClose={() => palette.setOpen(false)} />
       </div>
     </div>
   );

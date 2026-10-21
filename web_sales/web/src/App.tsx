@@ -15,6 +15,11 @@ import Cheques from './pages/Cheques';
 import Hub from './pages/Hub';
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
+import Trade from './pages/Trade';
+import Notes from './pages/Notes';
+import Payroll from './pages/Payroll';
+import Rates from './pages/Rates';
+import Charts from './pages/Charts';
 import { BrandMark } from './components/Sidebar';
 import AppShell from './components/layout/AppShell';
 import { Spinner } from './components/ui/primitives';
@@ -56,6 +61,11 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/warehouses', <Warehouses />],
   ['/invoices', <Invoices />],
   ['/reports', <Reports />],
+  ['/trade', <Trade />],
+  ['/notes', <Notes />],
+  ['/payroll', <Payroll />],
+  ['/rates', <Rates />],
+  ['/charts', <Charts />],
 ];
 
 function App() {

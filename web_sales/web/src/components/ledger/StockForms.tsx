@@ -6,7 +6,7 @@ import Icon from '../ui/Icon';
 import { useLedger, OpDraft } from '../../context/LedgerContext';
 import { useAccountOptions } from './LedgerForms';
 import { localIso } from '../../lib/ledger';
-import { StockItem, StockMoveType, Warehouse, MOVE_LABELS, stockLevels } from '../../lib/erp';
+import { PRICE_LEVELS, StockItem, StockMoveType, Warehouse, MOVE_LABELS, stockLevels } from '../../lib/erp';
 import { formatNumber } from '../../lib/format';
 
 /* ───────── مخزن ───────── */
@@ -120,20 +120,34 @@ export const WarehouseFormModal: React.FC<{ open: boolean; onClose: () => void; 
 
 export const ItemFormModal: React.FC<{ open: boolean; onClose: () => void; item?: StockItem | null }> = ({ open, onClose, item }) => {
   const { saveItem } = useLedger();
-  const [f, setF] = useState({ name: '', code: '', unit: 'قطعة', category: '', price: '', minQty: '' });
+  const blank = { name: '', code: '', barcode: '', unit: 'قطعة', category: '', price: '', p2: '', p3: '', p4: '', p5: '', cost: '', minQty: '', reorderQty: '', maxQty: '', vatPct: '', note: '' };
+  const [f, setF] = useState(blank);
+  const [more, setMore] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setErr(null);
+    const s = (v?: number) => (v ? String(v) : '');
     setF({
       name: item?.name || '',
       code: item?.code || '',
+      barcode: item?.barcode || '',
       unit: item?.unit || 'قطعة',
       category: item?.category || '',
-      price: item?.price ? String(item.price) : '',
-      minQty: item?.minQty ? String(item.minQty) : '',
+      price: s(item?.price),
+      p2: s(item?.prices?.[0]),
+      p3: s(item?.prices?.[1]),
+      p4: s(item?.prices?.[2]),
+      p5: s(item?.prices?.[3]),
+      cost: s(item?.cost),
+      minQty: s(item?.minQty),
+      reorderQty: s(item?.reorderQty),
+      maxQty: s(item?.maxQty),
+      vatPct: s(item?.vatPct),
+      note: item?.note || '',
     });
+    setMore(!!(item?.prices?.some(Boolean) || item?.maxQty || item?.reorderQty || item?.barcode));
   }, [open, item]);
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -142,7 +156,22 @@ export const ItemFormModal: React.FC<{ open: boolean; onClose: () => void; item?
     e.preventDefault();
     if (!f.name.trim()) return setErr('اسم الصنف مطلوب');
     try {
-      await saveItem({ id: item?.id, ...f, price: Number(f.price) || 0, minQty: Number(f.minQty) || 0 });
+      await saveItem({
+        id: item?.id,
+        name: f.name,
+        code: f.code,
+        barcode: f.barcode,
+        unit: f.unit,
+        category: f.category,
+        note: f.note,
+        price: Number(f.price) || 0,
+        prices: [f.p2, f.p3, f.p4, f.p5].map((v) => Number(v) || 0),
+        cost: Number(f.cost) || 0,
+        minQty: Number(f.minQty) || 0,
+        reorderQty: Number(f.reorderQty) || 0,
+        maxQty: Number(f.maxQty) || 0,
+        vatPct: Number(f.vatPct) || 0,
+      });
       onClose();
     } catch (e: any) {
       setErr(e?.message || 'تعذّر الحفظ');
@@ -184,6 +213,36 @@ export const ItemFormModal: React.FC<{ open: boolean; onClose: () => void; item?
         <Field label="الحد الأدنى للتنبيه">
           <Input inputMode="decimal" value={f.minQty} onChange={set('minQty')} className="num" />
         </Field>
+        <Field label="سعر الشراء الافتراضي">
+          <Input inputMode="decimal" value={f.cost} onChange={set('cost')} className="num" />
+        </Field>
+        <button type="button" onClick={() => setMore((m) => !m)} className="text-start text-sm font-medium text-brand-600 hover:underline sm:col-span-2">
+          {more ? 'إخفاء' : 'إظهار'} الأسعار الإضافية وحدود المخزون والباركود
+        </button>
+        {more && (
+          <>
+            {(['p2', 'p3', 'p4', 'p5'] as const).map((k, i) => (
+              <Field key={k} label={PRICE_LEVELS[i + 1]}>
+                <Input inputMode="decimal" value={f[k]} onChange={set(k)} className="num" />
+              </Field>
+            ))}
+            <Field label="حد إعادة الطلب">
+              <Input inputMode="decimal" value={f.reorderQty} onChange={set('reorderQty')} className="num" />
+            </Field>
+            <Field label="الحد الأقصى للرصيد">
+              <Input inputMode="decimal" value={f.maxQty} onChange={set('maxQty')} className="num" />
+            </Field>
+            <Field label="باركود ثانٍ">
+              <Input value={f.barcode} onChange={set('barcode')} className="num" />
+            </Field>
+            <Field label="ضريبة الصنف %">
+              <Input inputMode="decimal" value={f.vatPct} onChange={set('vatPct')} className="num" />
+            </Field>
+            <Field label="ملاحظات الصنف" className="sm:col-span-2">
+              <Input value={f.note} onChange={set('note')} />
+            </Field>
+          </>
+        )}
       </form>
       <FormError message={err} />
     </Modal>

@@ -30,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/accounts', label: 'الحسابات', icon: 'ledger', description: 'دليل الحسابات وكشوفها', mobile: true },
       { path: '/accounting', label: 'القيود', icon: 'receipt', description: 'سجل القيود العام' },
       { path: '/reports', label: 'التقارير', icon: 'chart', description: 'مركز التقارير المالية', mobile: true },
+      { path: '/charts', label: 'الرسوم البيانية', icon: 'trendUp', description: 'تحليل الأداء عبر الأشهر' },
     ],
   },
   {
@@ -38,14 +39,21 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/cashboxes', label: 'الصناديق', icon: 'wallet', description: 'الصناديق وربطها بالحسابات', mobile: true },
       { path: '/vouchers', label: 'القبض والصرف', icon: 'swap', description: 'سندات القبض والصرف والتحويل' },
       { path: '/cheques', label: 'الشيكات', icon: 'cheque', description: 'الشيكات الواردة والصادرة' },
+      { path: '/notes', label: 'الإشعارات', icon: 'mail', description: 'الإشعارات المدينة والدائنة' },
+      { path: '/rates', label: 'أسعار العملات', icon: 'coins', description: 'أسعار الصرف حسب التاريخ' },
     ],
   },
   {
     label: 'المخزون والمبيعات',
     items: [
       { path: '/warehouses', label: 'المخازن', icon: 'warehouse', description: 'المخازن والأصناف وحركاتها' },
-      { path: '/invoices', label: 'فواتير البيع', icon: 'receipt', description: 'فواتير نقاط البيع وتحليل الربحية' },
+      { path: '/trade', label: 'الفواتير والعروض', icon: 'tag', description: 'فواتير البيع والشراء ومرتجعاتها والعروض والطلبيات' },
+      { path: '/invoices', label: 'فواتير نقاط البيع', icon: 'receipt', description: 'فواتير نقاط البيع وتحليل الربحية' },
     ],
+  },
+  {
+    label: 'الموظفون',
+    items: [{ path: '/payroll', label: 'الرواتب والأجور', icon: 'users', description: 'بيانات الموظفين وكشوف الرواتب' }],
   },
 ];
 
