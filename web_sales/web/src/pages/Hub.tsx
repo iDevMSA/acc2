@@ -6,12 +6,13 @@ import Icon, { IconName } from '../components/ui/Icon';
 import Modal from '../components/ui/Modal';
 import { Field, Select } from '../components/ui/Form';
 import { CURRENCIES } from '../lib/ledger';
+import { ClosePeriodModal } from '../components/trade/AdminForms';
 import { formatNumber } from '../lib/format';
 
 // "الأقسام": نفس تنظيم البرنامج المكتبي (المبيعات، المشتريات، قبض وصرف، الشيكات، المحاسبة، المخازن، أخرى، أدوات، عامة)
 // كل قسم: فهارس (البيانات الأساسية) ← حركات (العمليات) ← تقارير. كل بلاطة تفتح النافذة المنفذة في المنصة.
 
-type Tile = { label: string; icon: IconName; to?: string; action?: 'settings' | 'backup' | 'check'; soon?: boolean; tone?: string };
+type Tile = { label: string; icon: IconName; to?: string; action?: 'settings' | 'backup' | 'check' | 'close'; soon?: boolean; tone?: string };
 type Section = { key: string; label: string; indexes: Tile[]; actions: Tile[]; reports: Array<{ label: string; to: string }> };
 
 const SECTIONS: Section[] = [
@@ -24,14 +25,14 @@ const SECTIONS: Section[] = [
       { label: 'الأصناف', icon: 'box', to: '/warehouses?tab=items' },
     ],
     actions: [
-      { label: 'فواتير البيع', icon: 'receipt', to: '/invoices' },
-      { label: 'بيع من المخزن', icon: 'arrowOut', to: '/warehouses?tab=moves' },
+      { label: 'فواتير البيع', icon: 'receipt', to: '/trade?kind=sale' },
+      { label: 'فواتير مرجع البيع', icon: 'refresh', to: '/trade?kind=saleReturn' },
+      { label: 'عروض الأسعار والطلبيات', icon: 'tag', to: '/trade?view=quotes' },
+      { label: 'الإشعارات المدينة والدائنة', icon: 'mail', to: '/notes' },
+      { label: 'فواتير نقاط البيع', icon: 'receipt', to: '/invoices' },
       { label: 'سند قبض من زبون', icon: 'arrowIn', to: '/vouchers?type=receipt&party=customer' },
       { label: 'الشيكات الواردة', icon: 'cheque', to: '/cheques' },
-      { label: 'عروض الأسعار', icon: 'tag', soon: true },
-      { label: 'الطلبيات', icon: 'inbox', soon: true },
       { label: 'الإرساليات', icon: 'truck', soon: true },
-      { label: 'فواتير مرجع البيع', icon: 'refresh', soon: true },
     ],
     reports: [
       { label: 'الفواتير', to: '/invoices' },
@@ -39,6 +40,12 @@ const SECTIONS: Section[] = [
       { label: 'حركات الزبائن', to: '/reports?r=customers-moves' },
       { label: 'صافي المبيعات الشهري', to: '/reports?r=monthly-sales' },
       { label: 'الحسابات المدينة', to: '/reports?r=debtors' },
+      { label: 'سجل الفواتير', to: '/reports?r=invoices-register' },
+      { label: 'المبيعات حسب الصنف', to: '/reports?r=sales-by-item' },
+      { label: 'المبيعات حسب الزبون', to: '/reports?r=sales-by-customer' },
+      { label: 'أعمار الديون', to: '/reports?r=receivables-aging' },
+      { label: 'كشف الضريبة المضافة', to: '/reports?r=vat-report' },
+      { label: 'زبائن تجاوزوا حد الائتمان', to: '/reports?r=over-credit-limit' },
     ],
   },
   {
@@ -50,20 +57,22 @@ const SECTIONS: Section[] = [
       { label: 'الأصناف', icon: 'box', to: '/warehouses?tab=items' },
     ],
     actions: [
-      { label: 'المشتريات (إدخال للمخزن)', icon: 'arrowIn', to: '/warehouses?tab=moves' },
+      { label: 'فواتير الشراء', icon: 'arrowIn', to: '/trade?kind=purchase' },
+      { label: 'مرجع المشتريات', icon: 'refresh', to: '/trade?kind=purchaseReturn' },
+      { label: 'الطلبيات الصادرة والعروض الواردة', icon: 'tag', to: '/trade?view=quotes' },
+      { label: 'إدخال مباشر للمخزن', icon: 'warehouse', to: '/warehouses?tab=moves' },
       { label: 'المصروفات', icon: 'arrowOut', to: '/vouchers?type=payment' },
       { label: 'سند صرف لمورد', icon: 'swap', to: '/vouchers?type=payment&party=supplier' },
       { label: 'الشيكات الصادرة', icon: 'cheque', to: '/cheques?view=out' },
-      { label: 'الطلبيات الصادرة', icon: 'inbox', soon: true },
-      { label: 'العروض الواردة', icon: 'tag', soon: true },
       { label: 'البيانات الجمركية', icon: 'shield', soon: true },
-      { label: 'مرجع المشتريات', icon: 'refresh', soon: true },
     ],
     reports: [
       { label: 'أرصدة الموردين', to: '/reports?r=suppliers' },
       { label: 'حركات الموردين', to: '/reports?r=suppliers-moves' },
       { label: 'سندات الصرف', to: '/reports?r=vouchers' },
       { label: 'الحسابات الدائنة', to: '/reports?r=creditors' },
+      { label: 'المشتريات حسب المورد', to: '/reports?r=purchases-by-supplier' },
+      { label: 'كشف الضريبة المضافة', to: '/reports?r=vat-report' },
     ],
   },
   {
@@ -128,6 +137,9 @@ const SECTIONS: Section[] = [
       { label: 'قيود المحاسبة', icon: 'receipt', to: '/accounting' },
       { label: 'الميزانية العمومية', icon: 'scale', to: '/reports?r=balance-sheet' },
       { label: 'الإيرادات والمصروفات', icon: 'trendUp', to: '/reports?r=income-expense' },
+      { label: 'الرسوم البيانية', icon: 'chart', to: '/charts' },
+      { label: 'أسعار العملات', icon: 'coins', to: '/rates' },
+      { label: 'ترحيل وإغلاق الفترة', icon: 'lock', action: 'close' },
     ],
     reports: [
       { label: 'أرصدة الحسابات', to: '/reports?r=balances' },
@@ -139,6 +151,10 @@ const SECTIONS: Section[] = [
       { label: 'قيود المحاسبة', to: '/reports?r=journal' },
       { label: 'حساب الأستاذ', to: '/reports?r=general-ledger' },
       { label: 'كشف حساب', to: '/reports?r=statement' },
+      { label: 'مقارنة الموازنة مع الأرصدة', to: '/reports?r=budget-vs-actual' },
+      { label: 'الحسابات التي تعدّت الموازنة', to: '/reports?r=over-budget' },
+      { label: 'حسابات اختلفت أرصدتها عن طبيعتها', to: '/reports?r=nature-mismatch' },
+      { label: 'الحسابات المجمّدة', to: '/reports?r=frozen-accounts' },
     ],
   },
   {
@@ -156,6 +172,12 @@ const SECTIONS: Section[] = [
       { label: 'أرصدة المخازن', to: '/reports?r=stock-balances' },
       { label: 'حركات المخازن', to: '/reports?r=stock-moves' },
       { label: 'أصناف دون الحد الأدنى', to: '/reports?r=stock-low' },
+      { label: 'أصناف فوق الحد الأقصى', to: '/reports?r=stock-over-max' },
+      { label: 'أصناف بلغت حد إعادة الطلب', to: '/reports?r=stock-reorder' },
+      { label: 'الفحص على الرصيد السالب', to: '/reports?r=stock-negative' },
+      { label: 'الأصناف بدون فواتير', to: '/reports?r=items-no-invoices' },
+      { label: 'مصفوفة حركات الأصناف', to: '/reports?r=item-movement-matrix' },
+      { label: 'قائمة الأسعار', to: '/reports?r=price-list' },
       { label: 'صافي المبيعات الشهري', to: '/reports?r=monthly-sales' },
     ],
   },
@@ -169,13 +191,17 @@ const SECTIONS: Section[] = [
       { label: 'الحسابات', icon: 'ledger', to: '/accounts' },
     ],
     actions: [
-      { label: 'المرتبات والأجور', icon: 'coins', to: '/vouchers?type=payment&party=employee' },
+      { label: 'الرواتب والأجور', icon: 'coins', to: '/payroll' },
+      { label: 'بيانات الموظفين', icon: 'users', to: '/payroll?tab=employees' },
+      { label: 'الإشعارات', icon: 'mail', to: '/notes' },
       { label: 'سندات القيود', icon: 'receipt', to: '/accounting' },
       { label: 'الإيرادات والمصروفات', icon: 'trendUp', to: '/reports?r=income-expense' },
       { label: 'اللوحة الإدارية', icon: 'home', to: '/' },
     ],
     reports: [
       { label: 'أرصدة الموظفين', to: '/reports?r=employees' },
+      { label: 'ملخص الرواتب والأجور', to: '/reports?r=payroll-summary' },
+      { label: 'رواتب موظف', to: '/reports?r=employee-payroll' },
       { label: 'حركات الموظفين', to: '/reports?r=employees-moves' },
       { label: 'الإيرادات والمصروفات', to: '/reports?r=income-expense' },
     ],
@@ -188,7 +214,8 @@ const SECTIONS: Section[] = [
       { label: 'نسخ بيانات المجموعة', icon: 'download', action: 'backup' },
       { label: 'فحص وتدقيق البيانات', icon: 'shield', action: 'check' },
       { label: 'الإعدادات ومعلومات الشركة', icon: 'settings', to: '/settings' },
-      { label: 'ترحيل وإغلاق الحركات', icon: 'lock', soon: true },
+      { label: 'ترحيل وإغلاق الفترة', icon: 'lock', action: 'close' },
+      { label: 'أسعار العملات', icon: 'coins', to: '/rates' },
     ],
     reports: [],
   },
@@ -201,14 +228,17 @@ const SECTIONS: Section[] = [
       { label: 'البنوك', icon: 'building', to: '/accounts?role=bank' },
       { label: 'المستخدمون', icon: 'users', soon: true },
     ],
-    reports: [{ label: 'كشف بأرصدة الحسابات', to: '/reports?r=balances' }],
+    reports: [
+      { label: 'كشف بأرصدة الحسابات', to: '/reports?r=balances' },
+      { label: 'أسعار العملات', to: '/reports?r=currency-rates' },
+    ],
   },
 ];
 
 const Hub: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const section = SECTIONS.find((s) => s.key === params.get('s')) || SECTIONS[0];
-  const [modal, setModal] = useState<'settings' | 'check' | null>(null);
+  const [modal, setModal] = useState<'settings' | 'check' | 'close' | null>(null);
   const ledger = useLedger();
 
   const backup = () => {
@@ -225,6 +255,12 @@ const Hub: React.FC = () => {
         items: ledger.items,
         stockMoves: ledger.moves,
         cheques: ledger.cheques,
+        invoices: ledger.invoices,
+        quotes: ledger.quotes,
+        notes: ledger.notes,
+        payrolls: ledger.payrolls,
+        rates: ledger.rates,
+        accountMeta: ledger.accountMeta,
       },
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -342,6 +378,7 @@ const Hub: React.FC = () => {
 
       <SettingsModal open={modal === 'settings'} onClose={() => setModal(null)} />
       <CheckModal open={modal === 'check'} onClose={() => setModal(null)} />
+      <ClosePeriodModal open={modal === 'close'} onClose={() => setModal(null)} />
     </>
   );
 };

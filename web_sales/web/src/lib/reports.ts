@@ -14,6 +14,7 @@ import {
 } from './ledger';
 import { CHEQUE_STATUS, Cashbox, Cheque, MOVE_LABELS, StockItem, StockMove, Voucher, VOUCHER_LABELS, Warehouse, cashboxBalance, stockLevels } from './erp';
 import { formatDate, formatNumber } from './format';
+import type { AccountExtra, Invoice, Note, Payroll, RateEntry } from './trade';
 
 export interface ReportContext {
   accounts: Account[];
@@ -28,6 +29,12 @@ export interface ReportContext {
   items: StockItem[];
   moves: StockMove[];
   cheques: Cheque[];
+  /** المستندات التجارية والإدارية (lib/trade.ts) */
+  invoices?: Invoice[];
+  notes?: Note[];
+  payrolls?: Payroll[];
+  rates?: RateEntry[];
+  accountMeta?: Record<string, AccountExtra>;
   period: Period;
   /** معامل اختياري: الحساب (كشف حساب) أو التصنيف */
   accountId?: string;

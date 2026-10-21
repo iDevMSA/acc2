@@ -3,6 +3,7 @@
 // المالي مباشرة في أرصدة الحسابات، بينما تبقى تفاصيل المخزون والشيكات على الويب.
 
 import { Operation } from './ledger';
+import { AccountExtra } from './trade';
 
 /* ───────── الإعدادات ───────── */
 
@@ -12,12 +13,23 @@ export interface ErpSettings {
   chequesInAccountId?: string;
   /** حساب "شيكات صادرة / أوراق دفع" */
   chequesOutAccountId?: string;
+  /** حسابات الفواتير (تُنشأ تلقائياً عند أول فاتورة إن لم تُحدَّد) */
+  salesAccountId?: string;
+  purchasesAccountId?: string;
+  cogsAccountId?: string;
+  vatAccountId?: string;
+  /** نسبة الضريبة المضافة الافتراضية في الفواتير */
+  defaultVatPct?: number;
+  /** حساب مصروف الرواتب العام وحساب الاستقطاعات */
+  salariesAccountId?: string;
+  payrollDeductionsAccountId?: string;
+  /** حساب الأرباح المحتجزة / المدوّرة لقيد الإقفال */
+  retainedEarningsAccountId?: string;
+  /** آخر تاريخ أُقفلت حتى نهايته الفترة المالية */
+  closedUntil?: string;
 }
 
-export interface AccountMeta {
-  role?: string;
-  note?: string;
-}
+export type AccountMeta = AccountExtra;
 
 /* ───────── الصناديق ───────── */
 
@@ -155,8 +167,21 @@ export interface StockItem {
   price?: number;
   /** حد أدنى للتنبيه */
   minQty?: number;
+  /** حد إعادة الطلب والحد الأقصى للرصيد */
+  reorderQty?: number;
+  maxQty?: number;
+  /** سعر الشراء الافتراضي */
+  cost?: number;
+  /** أسعار بيع إضافية (جملة، موزعين، ...) */
+  prices?: number[];
+  /** باركود ثانٍ (رقمي / حرفي) */
+  barcode?: string;
+  vatPct?: number;
+  note?: string;
   createdAt: string;
 }
+
+export const PRICE_LEVELS = ['سعر البيع', 'سعر الجملة', 'سعر الموزّع', 'سعر خاص', 'سعر 5'];
 
 export type StockMoveType = 'in' | 'out' | 'transfer' | 'adjust';
 
@@ -179,6 +204,8 @@ export interface StockMove {
   date: string;
   opIds: string[];
   createdAt: string;
+  /** حركة ناتجة عن فاتورة (لا تُحذف منفردة) */
+  invoiceId?: string | null;
 }
 
 export const MOVE_LABELS: Record<StockMoveType, string> = {

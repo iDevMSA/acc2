@@ -6,6 +6,8 @@ import DataTable, { Column } from '../components/ui/DataTable';
 import Icon from '../components/ui/Icon';
 import { ConfirmModal } from '../components/ui/Modal';
 import { AccountFormModal, OperationFormModal } from '../components/ledger/LedgerForms';
+import { AccountExtraModal } from '../components/trade/AdminForms';
+import { AGE_BUCKETS, NATURE_LABELS, ageBalance, natureMismatch } from '../lib/trade';
 import { ExportButtons, PeriodPicker, SignedAmount } from '../components/ledger/ReportToolbar';
 import { formatDate, formatNumber } from '../lib/format';
 import {
@@ -21,7 +23,7 @@ import {
   sortByDate,
   totalsOf,
 } from '../lib/ledger';
-import { ReportTable, shareWhatsApp } from '../lib/export';
+import { ReportTable, printReport, shareWhatsApp } from '../lib/export';
 
 type ReportType = 'statement' | 'byCurrency' | 'credit' | 'debit' | 'monthly';
 
@@ -40,8 +42,10 @@ interface Row extends Operation {
 const AccountDetail: React.FC = () => {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { accountsById, opsByAccount, mainCurrency, roleOf, deleteAccount, deleteOperations, ready, cashboxes, phoneCashboxes } =
+  const { accountsById, opsByAccount, mainCurrency, roleOf, deleteAccount, deleteOperations, ready, cashboxes, phoneCashboxes, accountMeta, company } =
     useLedger();
+  const meta = accountMeta[id] || {};
+  const [extraOpen, setExtraOpen] = useState(false);
   const account = accountsById[id];
   const allOps = useMemo(() => sortByDate(opsByAccount[id] || []), [opsByAccount, id]);
 
@@ -187,6 +191,32 @@ const AccountDetail: React.FC = () => {
     };
   };
 
+  // رسالة مطالبة للمدين (كما يعدّها الأصيل تلقائياً) مع أعمار الدين
+  const demandLetter = () => {
+    const ages = ageBalance(allOps, new Date());
+    printReport(
+      {
+        title: 'رسالة مطالبة بسداد رصيد',
+        subtitle: `السادة / ${account.name} المحترمين`,
+        summary: [
+          ['الرصيد المستحق', `${formatNumber(Math.max(balance.total, 0))} ${mainCurrency}`],
+          ['تاريخ المطالبة', formatDate(new Date())],
+        ],
+        columns: ['البيان', 'القيمة'],
+        numericColumns: [1],
+        rows: [
+          ['نرجو التكرم بسداد الرصيد المستحق علينا لكم في أقرب وقت، وفق أعمار الدين التالية:', ''],
+          ...AGE_BUCKETS.map((b, i) => [`مستحق منذ ${b} يوماً`, ages[i]] as Array<string | number>),
+          ...Object.entries(balance.byCurrency)
+            .filter(([, v]) => v > 0)
+            .map(([c, v]) => [`الرصيد بعملة ${c}`, v] as Array<string | number>),
+        ],
+        footer: [['إجمالي المستحق', Math.max(balance.total, 0)]],
+      },
+      company,
+    );
+  };
+
   const sendWhatsApp = () => {
     const lines = [
       `كشف رصيد: ${account.name}`,
@@ -296,6 +326,17 @@ const AccountDetail: React.FC = () => {
                   {account.phone}
                 </span>
               )}
+              {meta.frozen && <span className="rounded-full bg-rose-400/30 px-2.5 py-0.5 font-semibold text-white">مجمّد</span>}
+              {meta.nature && (
+                <span className={cx('rounded-full px-2.5 py-0.5', natureMismatch(meta.nature, balance.total) ? 'bg-amber-400/40' : 'bg-white/15')}>
+                  {NATURE_LABELS[meta.nature]}
+                </span>
+              )}
+              {meta.budget ? (
+                <span className={cx('num rounded-full px-2.5 py-0.5', Math.abs(balance.total) > meta.budget ? 'bg-amber-400/40' : 'bg-white/15')}>
+                  موازنة {formatNumber(meta.budget, 0)}
+                </span>
+              ) : null}
               {linkedBoxes.map((b) => (
                 <span key={b.id} className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5">
                   <Icon name="wallet" size={12} /> {b.name}
@@ -311,6 +352,8 @@ const AccountDetail: React.FC = () => {
               <Icon name="plusSquare" size={16} /> قيد جديد
             </button>
             <HeaderIcon icon="share" title="إرسال الرصيد واتساب" onClick={sendWhatsApp} />
+            {balance.total > 0.005 && <HeaderIcon icon="mail" title="رسالة مطالبة (PDF)" onClick={demandLetter} />}
+            <HeaderIcon icon="settings" title="بيانات إضافية: الموازنة، الطبيعة، التجميد، الخصم، حد الائتمان" onClick={() => setExtraOpen(true)} />
             <HeaderIcon icon="edit" title="تعديل الحساب" onClick={() => setEditAccount(true)} />
             <HeaderIcon icon="trash" title="حذف الحساب" onClick={() => setConfirmDelete(true)} danger />
           </div>
@@ -478,6 +521,7 @@ const AccountDetail: React.FC = () => {
       </Card>
 
       <AccountFormModal open={editAccount} onClose={() => setEditAccount(false)} account={account} />
+      <AccountExtraModal open={extraOpen} onClose={() => setExtraOpen(false)} accountId={account.id} />
       <OperationFormModal
         open={opModal.open}
         onClose={() => setOpModal({ open: false })}
@@ -517,7 +561,7 @@ const AccountDetail: React.FC = () => {
   );
 };
 
-const HeaderIcon: React.FC<{ icon: 'share' | 'edit' | 'trash'; title: string; onClick: () => void; danger?: boolean }> = ({
+const HeaderIcon: React.FC<{ icon: 'share' | 'edit' | 'trash' | 'mail' | 'settings'; title: string; onClick: () => void; danger?: boolean }> = ({
   icon,
   title,
   onClick,
