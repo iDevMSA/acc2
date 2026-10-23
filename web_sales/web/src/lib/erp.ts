@@ -27,6 +27,8 @@ export interface ErpSettings {
   retainedEarningsAccountId?: string;
   /** آخر تاريخ أُقفلت حتى نهايته الفترة المالية */
   closedUntil?: string;
+  /** اختصارات لوحة المفاتيح التي غيّرها المستخدم: id → اختصار ("" = بلا اختصار) */
+  shortcuts?: Record<string, string>;
 }
 
 export type AccountMeta = AccountExtra;

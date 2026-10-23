@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AppProvider, useApp } from './context/AppContext';
 import { LedgerProvider } from './context/LedgerContext';
 import { PosProvider } from './context/PosContext';
+import { ShortcutsProvider } from './context/ShortcutsContext';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Accounting from './pages/Accounting';
@@ -15,6 +16,7 @@ import Warehouses from './pages/Warehouses';
 import Cheques from './pages/Cheques';
 import Hub from './pages/Hub';
 import Settings from './pages/Settings';
+import ShortcutsSettings from './pages/ShortcutsSettings';
 import Reports from './pages/Reports';
 import Trade from './pages/Trade';
 import Notes from './pages/Notes';
@@ -60,7 +62,9 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   return (
     <LedgerProvider>
       <PosProvider>
-        <AppShell>{children}</AppShell>
+        <ShortcutsProvider>
+          <AppShell>{children}</AppShell>
+        </ShortcutsProvider>
       </PosProvider>
     </LedgerProvider>
   );
@@ -70,6 +74,7 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/', <Dashboard />],
   ['/hub', <Hub />],
   ['/settings', <Settings />],
+  ['/settings/shortcuts', <ShortcutsSettings />],
   ['/accounts', <Accounts />],
   ['/accounts/:id', <AccountDetail />],
   ['/accounting', <Accounting />],

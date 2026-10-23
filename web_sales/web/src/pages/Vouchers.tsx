@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useNewParam } from '../hooks/useNewParam';
 import { useLedger } from '../context/LedgerContext';
 import { Badge, Button, Card, PageHeader, StatCard, Tabs } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
@@ -22,6 +23,7 @@ const Vouchers: React.FC = () => {
   const [period, setPeriod] = useState<Period>(periodFromPreset('month'));
   const [modal, setModal] = useState<{ open: boolean; type: VoucherType }>({ open: false, type: 'receipt' });
   const [confirm, setConfirm] = useState<Voucher | null>(null);
+  useNewParam((k) => ['receipt', 'payment', 'transfer'].includes(k) && setModal({ open: true, type: k as VoucherType }));
 
   const setParam = (k: string, v: string) => {
     const next = new URLSearchParams(params);
