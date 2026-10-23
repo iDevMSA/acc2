@@ -2,6 +2,7 @@ import { TAX_COUNTRIES, findTaxCountry } from './countries';
 import {
   allowedRates,
   buildTaxReport,
+  buildVatReturn,
   computeInvoiceTax,
   effectiveCountry,
   parseRates,
@@ -98,4 +99,36 @@ test('parseRates accepts Arabic and Latin separators', () => {
   expect(parseRates('')).toEqual([]);
   expect(parseRates('5, abc')).toBeNull();
   expect(parseRates('150')).toBeNull();
+});
+
+test('VAT return deducts input tax from purchases and nets returns', () => {
+  const pos = { p1: { status: 'closed', createdAt: '2026-10-05T10:00:00Z', items: [{ quantity: 2, unitPrice: 100, vatRate: 15 }] } };
+  const doc = (kind: any, net: number, vatPct = 15, extra: object = {}) => ({
+    id: kind, number: kind, kind, date: '2026-10-10', party: 'x', net, vat: (net * vatPct) / 100, vatPct, exchangeRate: 1, ...extra,
+  });
+  const r = buildVatReturn(
+    pos,
+    [
+      doc('sale', 1000),
+      doc('saleReturn', 100),
+      doc('purchase', 600),
+      doc('purchaseReturn', 50),
+      // فاتورة شراء بالدولار: 100 دولار بسعر 0.2667 دولار لكل ريال ← 375 ريال
+      { ...doc('purchase', 100), id: 'usd', exchangeRate: 0.26666667 },
+      // خارج الفترة
+      { ...doc('purchase', 9999), date: '2026-12-01' },
+    ],
+    SA,
+    undefined,
+    new Date('2026-10-01T00:00:00'),
+    new Date('2026-10-31T23:59:59'),
+  );
+  expect(r.sales.tax).toBe(180); // 30 من نقاط البيع + 150
+  expect(r.salesReturns.tax).toBe(15);
+  expect(r.outputTax).toBe(165);
+  expect(r.purchases.count).toBe(2);
+  expect(r.purchases.tax).toBe(146.25); // 90 + 56.25
+  expect(r.purchaseReturns.tax).toBe(7.5);
+  expect(r.inputTax).toBe(138.75);
+  expect(r.net).toBe(26.25);
 });

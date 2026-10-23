@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Taxes from './Taxes';
 
+// react-router-dom v7 لا يُحمَّل في Jest 27 (exports)، والصفحة تحتاج Link فقط
+jest.mock('react-router-dom', () => ({ Link: ({ children }: { children: React.ReactNode }) => children }));
 jest.mock('../config/firebase', () => ({ db: {} }));
 jest.mock('firebase/database', () => ({
   ref: () => ({}),
@@ -14,6 +16,13 @@ jest.mock('firebase/database', () => ({
 const mockApp = { user: { uid: 'u1' }, currency: 'SAR' };
 jest.mock('../context/AppContext', () => ({
   useApp: () => mockApp,
+}));
+const mockLedger = { invoices: [], notes: [], accountsById: {}, roleOf: () => 'general', mainCurrency: 'SAR', company: { name: '' } };
+jest.mock('../context/LedgerContext', () => ({
+  useLedger: () => mockLedger,
+}));
+jest.mock('../lib/salesInvoices', () => ({
+  useSalesInvoices: () => ({ invoices: [], loading: false }),
 }));
 const mockSave = jest.fn();
 jest.mock('../hooks/useTaxSettings', () => ({

@@ -189,3 +189,112 @@ export const zatcaQrBase64 = (
   bytes.forEach((b) => (bin += String.fromCharCode(b)));
   return btoa(bin);
 };
+
+/* ───────── الإقرار الكامل: ضريبة المخرجات − ضريبة المدخلات ───────── */
+
+// فاتورة أو إشعار من الويب (users/{uid}/erp) بالحقول التي يحتاجها الإقرار
+export interface TradeTaxDoc {
+  id: string;
+  number: string;
+  /** sale / saleReturn / purchase / purchaseReturn، أو إشعار (debit/credit) مع جهة الطرف */
+  kind: 'sale' | 'saleReturn' | 'purchase' | 'purchaseReturn';
+  date: string;
+  party: string;
+  /** الصافي قبل الضريبة والضريبة، بعملة الفاتورة */
+  net: number;
+  vat: number;
+  vatPct: number;
+  /** عدد وحدات عملة الفاتورة مقابل وحدة من العملة الرئيسية (المبلغ الرئيسي = المبلغ ÷ السعر) */
+  exchangeRate: number;
+}
+
+export interface VatSection {
+  count: number;
+  taxable: number;
+  zeroRated: number;
+  tax: number;
+  byRate: RateLine[];
+}
+
+export interface VatReturn {
+  /** فواتير نقاط البيع + فواتير البيع والإشعارات المدينة للعملاء */
+  sales: VatSection;
+  /** مرتجعات البيع والإشعارات الدائنة للعملاء (تُطرح) */
+  salesReturns: VatSection;
+  /** فواتير الشراء والإشعارات الدائنة من الموردين */
+  purchases: VatSection;
+  /** مرتجعات الشراء والإشعارات المدينة للموردين (تُطرح) */
+  purchaseReturns: VatSection;
+  outputTax: number;
+  inputTax: number;
+  /** موجب = مستحق للجهة الضريبية، سالب = رصيد مسترد */
+  net: number;
+  /** المستندات التي دخلت الإقرار (للعرض والتصدير) */
+  docs: (TradeTaxDoc & { source: 'pos' | 'trade' })[];
+  invalidRateInvoices: string[];
+}
+
+const emptySection = (): VatSection => ({ count: 0, taxable: 0, zeroRated: 0, tax: 0, byRate: [] });
+
+const addTo = (s: VatSection, rate: number, taxable: number, tax: number) => {
+  let line = s.byRate.find((l) => l.rate === rate);
+  if (!line) s.byRate.push((line = { rate, taxable: 0, tax: 0 }));
+  line.taxable += taxable;
+  line.tax += tax;
+};
+
+const finish = (s: VatSection): VatSection => {
+  const byRate = s.byRate.map((l) => ({ rate: l.rate, taxable: round2(l.taxable), tax: round2(l.tax) })).sort((a, b) => b.rate - a.rate);
+  return {
+    count: s.count,
+    byRate,
+    taxable: round2(byRate.filter((l) => l.rate > 0).reduce((t, l) => t + l.taxable, 0)),
+    zeroRated: round2(byRate.filter((l) => l.rate === 0).reduce((t, l) => t + l.taxable, 0)),
+    tax: round2(byRate.reduce((t, l) => t + l.tax, 0)),
+  };
+};
+
+const inDateRange = (date: string, from?: Date, to?: Date) => inPeriod(date && date.length === 10 ? `${date}T12:00:00` : date, from, to);
+
+export const buildVatReturn = (
+  posInvoices: Record<string, SalesInvoice>,
+  tradeDocs: TradeTaxDoc[],
+  country: TaxCountry,
+  settings?: Partial<TaxSettings>,
+  from?: Date,
+  to?: Date,
+): VatReturn => {
+  const pos = buildTaxReport(posInvoices, country, settings, from, to);
+  const sections = { sales: emptySection(), salesReturns: emptySection(), purchases: emptySection(), purchaseReturns: emptySection() };
+  pos.byRate.forEach((l) => addTo(sections.sales, l.rate, l.taxable, l.tax));
+  sections.sales.count = pos.invoiceCount;
+
+  const allowed = allowedRates(country, settings);
+  const invalid = [...pos.invalidRateInvoices];
+  const docs: VatReturn['docs'] = [];
+  const target: Record<TradeTaxDoc['kind'], VatSection> = {
+    sale: sections.sales,
+    saleReturn: sections.salesReturns,
+    purchase: sections.purchases,
+    purchaseReturn: sections.purchaseReturns,
+  };
+  for (const d of tradeDocs) {
+    if (!inDateRange(d.date, from, to)) continue;
+    const rate = d.exchangeRate > 0 ? d.exchangeRate : 1;
+    const s = target[d.kind];
+    s.count++;
+    addTo(s, d.vatPct, d.net / rate, d.vat / rate);
+    docs.push({ ...d, source: 'trade' });
+    if ((d.kind === 'sale' || d.kind === 'saleReturn') && !allowed.includes(d.vatPct)) invalid.push(d.number);
+  }
+
+  const done = {
+    sales: finish(sections.sales),
+    salesReturns: finish(sections.salesReturns),
+    purchases: finish(sections.purchases),
+    purchaseReturns: finish(sections.purchaseReturns),
+  };
+  const outputTax = round2(done.sales.tax - done.salesReturns.tax);
+  const inputTax = round2(done.purchases.tax - done.purchaseReturns.tax);
+  return { ...done, outputTax, inputTax, net: round2(outputTax - inputTax), docs, invalidRateInvoices: invalid };
+};
