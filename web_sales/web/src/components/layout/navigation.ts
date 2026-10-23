@@ -22,6 +22,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/', label: 'الرئيسية', icon: 'home', description: 'نظرة عامة على أداء اليوم', mobile: true },
       { path: '/hub', label: 'الأقسام', icon: 'grid', description: 'كل النوافذ والأدوات مرتبة حسب القسم' },
       { path: '/settings', label: 'الإعدادات', icon: 'settings', description: 'معلومات الشركة والعملة والمزامنة' },
+      { path: '/subscription', label: 'الاشتراك', icon: 'sparkle', description: 'خطط الموبايل والمتصفح وحالة اشتراكك' },
     ],
   },
   {

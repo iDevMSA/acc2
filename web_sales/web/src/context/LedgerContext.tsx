@@ -3,6 +3,7 @@ import { ref, remove, update } from 'firebase/database';
 import { db } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
 import { useApp } from './AppContext';
+import { accountLimitError, operationLimitError } from '../lib/subscription';
 import {
   Account,
   AccountBalance,
@@ -158,7 +159,7 @@ const r2 = (n: number) => Math.round(n * 1e6) / 1e6;
 const randomId = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useApp();
+  const { user, webAccess } = useApp();
   const uid = user?.uid || null;
 
   const [accountsRaw, setAccountsRaw] = useState<any>(undefined);
@@ -352,9 +353,12 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           throw new Error(`الفترة مُقفلة حتى ${closed} — لا يمكن إدخال قيود بتاريخ سابق`);
         }
       }
+      const valid = drafts.filter((d) => d.accountId && Number.isFinite(d.amount) && d.amount !== 0);
+      // حدود خطة المتصفح المجانية (نفس DataService.canAddOperation في التطبيق)
+      const limit = valid.length ? operationLimitError(webAccess, operations.length, valid.length) : null;
+      if (limit) throw new Error(limit);
       const updates: Updates = {};
-      const ops: Operation[] = drafts
-        .filter((d) => d.accountId && Number.isFinite(d.amount) && d.amount !== 0)
+      const ops: Operation[] = valid
         .map((d) => {
           const rate = d.exchangeRate || 1;
           const op: Operation = {
@@ -383,7 +387,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       return { ops, updates };
     },
-    [accountsById, accountMeta, settings.closedUntil, mainCurrency, uid, company.name],
+    [accountsById, accountMeta, settings.closedUntil, mainCurrency, uid, company.name, webAccess, operations.length],
   );
 
   const opRemovals = useCallback(
@@ -408,6 +412,11 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const existing = a.id ? accountsById[a.id] : undefined;
       let id = a.id || '';
       if (!existing) {
+        const limit = accountLimitError(
+          webAccess,
+          new Set([...accounts.map((x) => x.id), ...Array.from(pendingIds.current)]).size,
+        );
+        if (limit) throw new Error(limit);
         const taken = [...accounts, ...Array.from(pendingIds.current).map((pid) => ({ id: pid }) as Account)];
         id = nextAccountId(taken);
         pendingIds.current.add(id);
@@ -436,7 +445,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await write(updates);
       return id;
     },
-    [accounts, accountsById, write],
+    [accounts, accountsById, write, webAccess],
   );
 
   const deleteAccount = useCallback<LedgerContextType['deleteAccount']>(
