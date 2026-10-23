@@ -8,6 +8,7 @@ import { useLedger } from '../../context/LedgerContext';
 import { NAV_GROUPS, findNavItem } from './navigation';
 import { formatDate } from '../../lib/format';
 import CommandPalette from './CommandPalette';
+import AlertsBell from './AlertsBell';
 import ShortcutsHelp from './ShortcutsHelp';
 import Kbd from '../ui/Kbd';
 import { useShortcutFor, useShortcutListener } from '../../context/ShortcutsContext';
@@ -68,6 +69,7 @@ const Topbar: React.FC<{ onMenu: () => void; onSearch: () => void }> = ({ onMenu
       </nav>
 
       <div className="flex items-center gap-2">
+        <AlertsBell />
         <button
           onClick={onSearch}
           title={searchCombo ? `بحث شامل (${searchCombo})` : 'بحث شامل'}

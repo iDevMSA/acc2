@@ -21,6 +21,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/', label: 'الرئيسية', icon: 'home', description: 'نظرة عامة على أداء اليوم', mobile: true },
       { path: '/hub', label: 'الأقسام', icon: 'grid', description: 'كل النوافذ والأدوات مرتبة حسب القسم' },
+      { path: '/alerts', label: 'التنبيهات', icon: 'bell', description: 'مخزون منخفض وفواتير مستحقة وديون متأخرة، وإرسالها للهاتف والبريد' },
       { path: '/settings', label: 'الإعدادات', icon: 'settings', description: 'معلومات الشركة والعملة والمزامنة' },
     ],
   },

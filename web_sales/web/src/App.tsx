@@ -30,6 +30,8 @@ import AppShell from './components/layout/AppShell';
 import { Spinner } from './components/ui/primitives';
 import Taxes from './pages/Taxes';
 import EInvoice from './pages/EInvoice';
+import Alerts from './pages/Alerts';
+import { AlertsProvider } from './context/AlertsContext';
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading, isCashier } = useApp();
@@ -64,9 +66,11 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   return (
     <LedgerProvider>
       <PosProvider>
-        <ShortcutsProvider>
-          <AppShell>{children}</AppShell>
-        </ShortcutsProvider>
+        <AlertsProvider>
+          <ShortcutsProvider>
+            <AppShell>{children}</AppShell>
+          </ShortcutsProvider>
+        </AlertsProvider>
       </PosProvider>
     </LedgerProvider>
   );
@@ -93,6 +97,7 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/charts', <Charts />],
   ['/taxes', <Taxes />],
   ['/einvoice', <EInvoice />],
+  ['/alerts', <Alerts />],
   ['/pos-admin', <PosAdmin />],
   ['/pos', <Cashier />],
 ];
