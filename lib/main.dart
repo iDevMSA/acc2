@@ -57,6 +57,8 @@ final ValueNotifier<List<Operation>> operationsNotifier =
 final ValueNotifier<double> balanceNotifier = ValueNotifier<double>(0.0);
 final ValueNotifier<CompanyInfo> companyNotifier =
     ValueNotifier<CompanyInfo>(const CompanyInfo(name: 'شركتي'));
+// العملة الرئيسية — تتغير عند اختيارها هنا أو من الويب (عبر المزامنة)
+final ValueNotifier<String> mainCurrencyNotifier = ValueNotifier<String>('USD');
 final ValueNotifier<SubscriptionInfo> subscriptionNotifier =
     ValueNotifier<SubscriptionInfo>(const SubscriptionInfo());
 
@@ -694,19 +696,79 @@ class DataService {
     } catch (e) {
       debugPrint('خطأ مزامنة الشركة: $e');
     }
+    await syncMainCurrencyFromCloud();
   }
 
   //
   //  العملة الرئيسية
   //
+  // تُحفظ محلياً وفي users/{uid}/erp/settings/mainCurrency (نفس العقدة التي
+  // يقرأها الويب)، ومعها mainCurrencyUpdatedAt بالمللي ثانية: يُعتمد الأحدث.
+  static const String _mainCurrencyAtKey = 'main_currency_at';
+
+  static DatabaseReference _erpSettingsRef(String uid) =>
+      _userRef(uid).child('erp/settings');
+
   static Future<String> getMainCurrency() async {
     final p = await _prefs;
-    return p.getString('$_prefix$_mainCurrencyKey') ?? 'USD';
+    final c = p.getString('$_prefix$_mainCurrencyKey') ?? 'USD';
+    mainCurrencyNotifier.value = c;
+    return c;
   }
 
   static Future<void> setMainCurrency(String currency) async {
     final p = await _prefs;
+    final at = DateTime.now().millisecondsSinceEpoch;
     await p.setString('$_prefix$_mainCurrencyKey', currency);
+    await p.setInt('$_prefix$_mainCurrencyAtKey', at);
+    mainCurrencyNotifier.value = currency;
+    await _pushMainCurrency(currency, at);
+  }
+
+  static Future<void> _pushMainCurrency(String currency, int at) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await _erpSettingsRef(user.uid)
+          .update({'mainCurrency': currency, 'mainCurrencyUpdatedAt': at})
+          .timeout(const Duration(seconds: 6));
+    } catch (e) {
+      // بلا اتصال: تُرفع في المزامنة التالية لأن وقتها المحلي أحدث
+      debugPrint('تعذّر رفع العملة الرئيسية: $e');
+    }
+  }
+
+  /// تأخذ العملة من السحابة إن كانت أحدث، أو ترفع المحلية إن كانت مختلفة وأحدث
+  static Future<void> syncMainCurrencyFromCloud() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snap = await _erpSettingsRef(user.uid)
+          .get()
+          .timeout(const Duration(seconds: 6));
+      final v = snap.value;
+      final data = v is Map ? v : const {};
+      final cloud = data['mainCurrency'];
+      final cloudCur = cloud is String && cloud.isNotEmpty ? cloud : null;
+      final cloudAtRaw = data['mainCurrencyUpdatedAt'];
+      final cloudAt = cloudAtRaw is num ? cloudAtRaw.toInt() : 0;
+
+      final p = await _prefs;
+      final local = p.getString('$_prefix$_mainCurrencyKey');
+      final localAt = p.getInt('$_prefix$_mainCurrencyAtKey') ?? 0;
+
+      if (cloudCur != null && (local == null || cloudAt > localAt)) {
+        await p.setString('$_prefix$_mainCurrencyKey', cloudCur);
+        await p.setInt('$_prefix$_mainCurrencyAtKey', cloudAt);
+        mainCurrencyNotifier.value = cloudCur;
+      } else if (local != null && local != cloudCur) {
+        final at = DateTime.now().millisecondsSinceEpoch;
+        await p.setInt('$_prefix$_mainCurrencyAtKey', at);
+        await _pushMainCurrency(local, at);
+      }
+    } catch (e) {
+      debugPrint('خطأ مزامنة العملة الرئيسية: $e');
+    }
   }
 
   //
@@ -2717,6 +2779,17 @@ class _HomeContentState extends State<_HomeContent> {
     super.initState();
     DataService.getMainCurrency()
         .then((c) => mounted ? setState(() => _mainCurrency = c) : null);
+    mainCurrencyNotifier.addListener(_onCurrency);
+  }
+
+  void _onCurrency() {
+    if (mounted) setState(() => _mainCurrency = mainCurrencyNotifier.value);
+  }
+
+  @override
+  void dispose() {
+    mainCurrencyNotifier.removeListener(_onCurrency);
+    super.dispose();
   }
 
   @override
