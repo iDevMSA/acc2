@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Icon, { IconName } from '../ui/Icon';
 import { cx } from '../ui/primitives';
 import { useLedger } from '../../context/LedgerContext';
-import { NAV_GROUPS } from './navigation';
+import { visibleGroups } from './navigation';
+import { useApp } from '../../context/AppContext';
 import { ALL_REPORTS } from '../../lib/reportsExtra';
 import { formatNumber } from '../../lib/format';
 import { NEW_TARGETS, navActionId } from '../../lib/shortcuts';
@@ -35,6 +36,7 @@ const CommandPalette: React.FC<{ open: boolean; onClose: () => void }> = ({ open
   const navigate = useNavigate();
   const { accounts, items, balances, mainCurrency } = useLedger();
   const { bindings } = useShortcuts();
+  const { member } = useApp();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const list = useRef<HTMLUListElement>(null);
@@ -48,7 +50,7 @@ const CommandPalette: React.FC<{ open: boolean; onClose: () => void }> = ({ open
 
   const hits = useMemo<Hit[]>(() => {
     const s = q.trim();
-    const pages: Hit[] = NAV_GROUPS.flatMap((g) => g.items.map((i) => ({ key: `p${i.path}`, label: i.label, hint: g.label, icon: i.icon, to: i.path, action: navActionId(i.path) })));
+    const pages: Hit[] = visibleGroups(member).flatMap((g) => g.items.map((i) => ({ key: `p${i.path}`, label: i.label, hint: g.label, icon: i.icon, to: i.path, action: navActionId(i.path) })));
     if (!s) return [...QUICK, ...pages];
     const m = (t?: string) => !!t && t.toLowerCase().includes(s.toLowerCase());
     const reports: Hit[] = ALL_REPORTS.filter((r) => m(r.title) || m(r.description)).map((r) => ({
@@ -73,7 +75,7 @@ const CommandPalette: React.FC<{ open: boolean; onClose: () => void }> = ({ open
       .slice(0, 8)
       .map((i) => ({ key: `i${i.id}`, label: i.name, hint: `صنف ${i.code || ''}`, icon: 'box', to: '/warehouses?tab=items' }));
     return [...QUICK.filter((h) => m(h.label)), ...pages.filter((p) => m(p.label) || m(p.hint)), ...accs, ...reports, ...its].slice(0, 40);
-  }, [q, accounts, items, balances, mainCurrency]);
+  }, [q, accounts, items, balances, mainCurrency, member]);
 
   useEffect(() => setActive(0), [q]);
   useEffect(() => {

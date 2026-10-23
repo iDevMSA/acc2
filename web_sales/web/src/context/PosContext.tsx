@@ -1,8 +1,10 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { increment, onChildAdded, push, ref, remove, update } from 'firebase/database';
 import { createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 import { db, secondaryAuth } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
+import { assertCanWrite } from '../lib/team';
+import { logAudit, valueAt } from '../lib/audit';
 import { useApp } from './AppContext';
 import {
   CashRegister,
@@ -96,10 +98,12 @@ interface PosContextType {
 const PosContext = createContext<PosContextType | undefined>(undefined);
 
 export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, ownerUid: owner, isCashier, currency } = useApp();
+  const { user, ownerUid: owner, isCashier, currency, member, actor } = useApp();
   const ownerUid = owner || '';
   const [raw, setRaw] = useState<Record<string, any>>({});
   const [loaded, setLoaded] = useState<Set<string>>(new Set());
+  const rawRef = useRef<Record<string, any>>({});
+  rawRef.current = raw;
 
   useEffect(() => {
     if (!ownerUid) return;
@@ -134,9 +138,18 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const write = useCallback(
     (updates: Updates) => {
       if (!ownerUid) return Promise.reject(new Error('لم يتم تسجيل الدخول'));
-      return update(ref(db, `sales/${ownerUid}`), updates);
+      const prevRaw = rawRef.current;
+      const prefixed = Object.fromEntries(Object.entries(updates).map(([k, v]) => [`sales/${k}`, v]));
+      try {
+        assertCanWrite(member, Object.keys(prefixed));
+      } catch (e) {
+        return Promise.reject(e);
+      }
+      return update(ref(db, `sales/${ownerUid}`), updates).then(() => {
+        if (actor) logAudit(ownerUid, actor, prefixed, (p) => valueAt(prevRaw, p.slice('sales/'.length)));
+      });
     },
-    [ownerUid],
+    [ownerUid, member, actor],
   );
   const newKey = useCallback((node: string) => push(ref(db, `sales/${ownerUid}/${node}`)).key!, [ownerUid]);
 

@@ -36,6 +36,14 @@ const uidOf = (req: CallableRequest) => {
   return req.auth.uid;
 };
 
+/** عضو الفريق يتعامل مع تنبيهات المالك (نفس ما يفعله الويب) */
+const ownerOf = async (uid: string) => {
+  const db = getDatabase();
+  const owner = (await db.ref(`employeeOwnerMap/${uid}`).get()).val();
+  if (typeof owner !== 'string' || !owner) return uid;
+  return (await db.ref(`teams/${owner}/${uid}/active`).get()).val() === true ? owner : uid;
+};
+
 const vapid = async () => {
   const ref = getDatabase().ref('alertsVault/_vapid');
   let keys = (await ref.get()).val() as { publicKey: string; privateKey: string } | null;
@@ -85,13 +93,13 @@ export const alertsConfig = onCall({ region: REGION }, async (req) => {
 });
 
 export const alertsRegister = onCall({ region: REGION }, async (req) => {
-  const uid = uidOf(req);
+  const uid = await ownerOf(uidOf(req));
   await getDatabase().ref(`alertsIndex/${uid}`).set(true);
   return { ok: true };
 });
 
 export const alertsTest = onCall({ region: REGION, secrets: [SMTP_URL], timeoutSeconds: 120 }, async (req) => {
-  const uid = uidOf(req);
+  const uid = await ownerOf(uidOf(req));
   try {
     const r = await runDigest(adminDb(), await senders(), uid, new Date(), { test: true, appUrl: APP_URL.value() });
     if (r.error && !r.email && !r.push) throw new Error(r.error);

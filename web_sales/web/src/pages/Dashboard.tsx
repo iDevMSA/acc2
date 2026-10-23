@@ -16,8 +16,8 @@ const startOfDay = (d: Date) => {
 const invoiceDate = (inv: SalesInvoice) => toDate(inv.createdAt || inv.date);
 
 const Dashboard: React.FC = () => {
-  const { user, currency } = useApp();
-  const { invoices } = useSalesInvoices(user?.uid || null);
+  const { ownerUid, currency } = useApp();
+  const { invoices } = useSalesInvoices(ownerUid);
   // التطبيق يعتبر الفاتورة بلا حالة "مغلقة"
   const closedInvoices = useMemo(() => invoices.filter((inv) => (inv.status ?? 'closed') === 'closed'), [invoices]);
 

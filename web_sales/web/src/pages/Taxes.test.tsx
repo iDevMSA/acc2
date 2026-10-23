@@ -13,7 +13,7 @@ jest.mock('firebase/database', () => ({
   },
 }));
 // قيمة ثابتة مثل السياق الحقيقي، وإلا يتكرر الاشتراك مع كل رسم
-const mockApp = { user: { uid: 'u1' }, currency: 'SAR' };
+const mockApp = { user: { uid: 'u1' }, ownerUid: 'u1', member: null, currency: 'SAR' };
 jest.mock('../context/AppContext', () => ({
   useApp: () => mockApp,
 }));

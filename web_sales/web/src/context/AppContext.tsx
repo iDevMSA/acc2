@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { auth } from '../config/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { clearOfflineCache, watchValue } from '../lib/offlineStore';
+import { parseMember, TeamMember } from '../lib/team';
+import { Actor } from '../lib/audit';
 
 interface User {
   uid: string;
@@ -21,6 +23,15 @@ interface AppContextType {
    */
   ownerUid: string | null;
   isCashier: boolean;
+  /**
+   * عضو الفريق (محاسب، مدير فرع، مدقق) المسجّل في teams/{owner}/{uid}: يرى واجهة المنصة حسب صلاحياته.
+   * null للمالك، وللكاشير (ومدير الفرع القديم) الذي ليس له سجل في الفريق.
+   */
+  member: TeamMember | null;
+  /** عضو أوقفه المالك */
+  suspended: boolean;
+  /** من يقوم بالتعديل (لسجل التعديلات) */
+  actor: Actor | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -32,6 +43,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currency, setCurrency] = useState('SAR');
   // undefined = لم يصل الرد بعد، null = ليس موظفاً (مالك)
   const [employerUid, setEmployerUid] = useState<string | null | undefined>(undefined);
+  // undefined = لم يصل بعد، null = لا يوجد سجل في الفريق
+  const [memberRaw, setMemberRaw] = useState<any>(undefined);
 
   useEffect(() => {
     let subs: Array<() => void> = [];
@@ -52,11 +65,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const t = setTimeout(() => setEmployerUid((v) => (v === undefined ? null : v)), 6000);
         subs.push(() => clearTimeout(t));
         // بيانات الشركة كما يكتبها التطبيق (CompanyInfo) وعملة نقاط البيع من إعدادات المبيعات
-        subs.push(
-          watchValue(`users/${currentUser.uid}/companyInfo`, (data) => {
-            if (data) setCompanyInfo(data);
-          }),
-        );
       } else {
         setUser(null);
         setEmployerUid(null);
@@ -74,6 +82,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (!ownerUid || employerUid === undefined) return;
+    return watchValue(`users/${ownerUid}/companyInfo`, (data) => data && setCompanyInfo(data), () => undefined);
+  }, [ownerUid, employerUid]);
+
+  // سجل العضو في الفريق (قبل نشر قواعد الفريق يُرفض الطلب فيُعامل ككاشير كما كان)
+  useEffect(() => {
+    if (!user || !employerUid) {
+      setMemberRaw(null);
+      return;
+    }
+    setMemberRaw(undefined);
+    return watchValue(`teams/${employerUid}/${user.uid}`, (v) => setMemberRaw(v ?? null), () => setMemberRaw(null));
+  }, [user, employerUid]);
+
+  const teamEntry = useMemo(() => (user && memberRaw ? parseMember(user.uid, memberRaw) : null), [user, memberRaw]);
+  const suspended = !!teamEntry && !teamEntry.active;
+  const member = teamEntry && teamEntry.active && teamEntry.role !== 'cashier' ? teamEntry : null;
+  const actor: Actor | null = useMemo(
+    () =>
+      user
+        ? {
+            uid: user.uid,
+            name: teamEntry?.name || user.displayName || user.email || '',
+            role: employerUid ? teamEntry?.role || 'cashier' : 'owner',
+          }
+        : null,
+    [user, teamEntry, employerUid],
+  );
+
+  useEffect(() => {
+    if (!ownerUid || employerUid === undefined) return;
     return watchValue(`sales/${ownerUid}/settings/currency`, (value) => {
       if (typeof value === 'string' && value) setCurrency(value);
     });
@@ -84,11 +122,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await clearOfflineCache();
   };
 
-  const loading = authLoading || (!!user && employerUid === undefined);
+  const loading = authLoading || (!!user && (employerUid === undefined || (!!employerUid && memberRaw === undefined)));
 
   return (
     <AppContext.Provider
-      value={{ user, loading, logout, companyInfo, currency, ownerUid: loading ? null : ownerUid, isCashier: !!employerUid }}
+      value={{
+        user,
+        loading,
+        logout,
+        companyInfo,
+        currency,
+        ownerUid: loading ? null : ownerUid,
+        isCashier: !!employerUid && !member,
+        member,
+        suspended,
+        actor,
+      }}
     >
       {children}
     </AppContext.Provider>

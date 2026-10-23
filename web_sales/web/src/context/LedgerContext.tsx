@@ -2,6 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { ref, remove, update } from 'firebase/database';
 import { db } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
+import { assertCanWrite } from '../lib/team';
+import { logAudit, valueAt } from '../lib/audit';
 import { useApp } from './AppContext';
 import {
   Account,
@@ -158,8 +160,9 @@ const r2 = (n: number) => Math.round(n * 1e6) / 1e6;
 const randomId = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useApp();
-  const uid = user?.uid || null;
+  // للمالك: نفسه، ولعضو الفريق: المالك (employeeOwnerMap)
+  const { ownerUid, member, actor } = useApp();
+  const uid = ownerUid;
 
   const [accountsRaw, setAccountsRaw] = useState<any>(undefined);
   const [opsRaw, setOpsRaw] = useState<any>(undefined);
@@ -327,17 +330,25 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // الحسابات المضافة في نفس الجلسة قبل أن يصل تحديث Firebase — لتفادي تكرار الترقيم
   const pendingIds = useRef<Set<string>>(new Set());
 
+  // القيم الحالية قبل الحفظ (لسجل التعديلات)
+  const rawTree = useRef<any>({});
+  rawTree.current = { accounts: accountsRaw, operations: opsRaw, companyInfo: companyRaw, erp: erpRaw, accountGroups: groupsRaw, cashboxes: phoneBoxesRaw };
+
   const write = useCallback(
     async (updates: Updates) => {
       if (!uid) throw new Error('لم يتم تسجيل الدخول');
+      // Firebase يحدّث القيم محلياً قبل أن ينتهي الحفظ، فنحتفظ بالنسخة السابقة أولاً
+      const prevTree = rawTree.current;
       try {
+        assertCanWrite(member, Object.keys(updates));
         await update(ref(db, `users/${uid}`), updates);
       } catch (e: any) {
         setError(e?.message || 'تعذّر حفظ التغييرات');
         throw e;
       }
+      if (actor) logAudit(uid, actor, updates, (p) => valueAt(prevTree, p));
     },
-    [uid],
+    [uid, member, actor],
   );
 
   const buildOps = useCallback(

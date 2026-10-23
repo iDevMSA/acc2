@@ -32,9 +32,17 @@ import Taxes from './pages/Taxes';
 import EInvoice from './pages/EInvoice';
 import Alerts from './pages/Alerts';
 import { AlertsProvider } from './context/AlertsContext';
+import Team from './pages/Team';
+import Audit from './pages/Audit';
+import { canOpen } from './lib/team';
+import { EmptyState } from './components/ui/primitives';
+
+const NoAccess: React.FC = () => (
+  <EmptyState icon="lock" title="ليس لديك صلاحية فتح هذه الصفحة" description="اطلب من صاحب الحساب منحك الصلاحية من صفحة الفريق والصلاحيات" className="py-24" />
+);
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading, isCashier } = useApp();
+  const { user, loading, isCashier, member, suspended, logout } = useApp();
   const { pathname } = useLocation();
 
   if (loading) {
@@ -49,6 +57,19 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   if (!user) {
     return <Navigate to="/login" />;
+  }
+
+  if (suspended) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center">
+        <BrandMark className="h-11 w-11" />
+        <p className="text-base font-semibold text-ink">أوقف صاحب الحساب صلاحية دخولك</p>
+        <p className="text-sm text-ink-subtle">تواصل معه لإعادة تفعيل حسابك.</p>
+        <button onClick={logout} className="text-sm font-medium text-brand-700">
+          تسجيل الخروج
+        </button>
+      </div>
+    );
   }
 
   // الكاشير لا يرى إلا واجهة نقطة البيع على صندوقه (لا صلاحية له على حسابات المالك)
@@ -68,7 +89,7 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <PosProvider>
         <AlertsProvider>
           <ShortcutsProvider>
-            <AppShell>{children}</AppShell>
+            <AppShell>{canOpen(member, pathname) ? children : <NoAccess />}</AppShell>
           </ShortcutsProvider>
         </AlertsProvider>
       </PosProvider>
@@ -98,6 +119,8 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/taxes', <Taxes />],
   ['/einvoice', <EInvoice />],
   ['/alerts', <Alerts />],
+  ['/team', <Team />],
+  ['/audit', <Audit />],
   ['/pos-admin', <PosAdmin />],
   ['/pos', <Cashier />],
 ];
