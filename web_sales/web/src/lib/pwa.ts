@@ -13,12 +13,30 @@ const setWaiting = (w: ServiceWorker | null) => {
   updateListeners.forEach((l) => l(!!w));
 };
 
+// داخل موقع خوارزم يفتح التطبيق على /monsati (Next.js يحذف الشرطة الأخيرة)، بينما النطاق الافتراضي
+// لـ /monsati/sw.js هو /monsati/ فلا يشمل صفحة البداية ولا تفتح بدون اتصال. لذلك نسجّله بنطاق /monsati
+// (يسمح به الخادم عبر ترويسة Service-Worker-Allowed)، ونحذف التسجيل القديم بنطاق /monsati/.
+const registerWithAppScope = async () => {
+  const base = process.env.PUBLIC_URL;
+  const script = `${base}/sw.js`;
+  if (!base) return navigator.serviceWorker.register(script);
+  try {
+    const reg = await navigator.serviceWorker.register(script, { scope: base });
+    const old = await navigator.serviceWorker.getRegistration(`${base}/`);
+    if (old && old.scope !== reg.scope) await old.unregister();
+    return reg;
+  } catch {
+    // الخادم لم يُحدَّث بعد بالترويسة: نبقى على النطاق الافتراضي حتى يُنشر
+    return navigator.serviceWorker.register(script);
+  }
+};
+
 export const registerServiceWorker = () => {
   if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) return;
 
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register(`${process.env.PUBLIC_URL}/sw.js`);
+      const reg = await registerWithAppScope();
       // وُجدت نسخة جديدة سابقاً ولم تُفعّل بعد
       if (reg.waiting && navigator.serviceWorker.controller) setWaiting(reg.waiting);
       reg.addEventListener('updatefound', () => {
