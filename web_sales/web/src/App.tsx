@@ -34,6 +34,7 @@ import Alerts from './pages/Alerts';
 import { AlertsProvider } from './context/AlertsContext';
 import Team from './pages/Team';
 import Audit from './pages/Audit';
+import Import from './pages/Import';
 import { canOpen } from './lib/team';
 import { EmptyState } from './components/ui/primitives';
 
@@ -121,6 +122,7 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/alerts', <Alerts />],
   ['/team', <Team />],
   ['/audit', <Audit />],
+  ['/import', <Import />],
   ['/pos-admin', <PosAdmin />],
   ['/pos', <Cashier />],
 ];

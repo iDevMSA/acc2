@@ -5,6 +5,7 @@ import { watchValue } from '../lib/offlineStore';
 import { assertCanWrite } from '../lib/team';
 import { logAudit, valueAt } from '../lib/audit';
 import { useApp } from './AppContext';
+import { ImportRow } from '../lib/importer';
 import {
   Account,
   AccountBalance,
@@ -121,6 +122,9 @@ interface LedgerContextType {
   saveWarehouse: (w: Partial<Warehouse> & { name: string }) => Promise<string>;
   deleteWarehouse: (id: string) => Promise<void>;
   saveItem: (i: Partial<StockItem> & { name: string }) => Promise<string>;
+  /** استيراد زبائن أو موردين من Excel في كتابة واحدة، مع رصيد افتتاحي اختياري للجدد */
+  importParties: (rows: ImportRow[], role: 'customer' | 'supplier', openingDate: string) => Promise<{ added: number; updated: number }>;
+  importItems: (rows: ImportRow[]) => Promise<{ added: number; updated: number }>;
   deleteItem: (id: string) => Promise<void>;
   createMove: (m: Omit<StockMove, 'id' | 'number' | 'opIds' | 'createdAt'>, drafts: OpDraft[]) => Promise<string>;
   deleteMove: (id: string) => Promise<void>;
@@ -643,6 +647,105 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [moves, write],
   );
 
+  const importParties = useCallback<LedgerContextType['importParties']>(
+    async (rows, role, openingDate) => {
+      const updates: Updates = {};
+      const drafts: OpDraft[] = [];
+      const taken: Account[] = [...accounts];
+      let added = 0;
+      let updated = 0;
+      const str = (v: unknown) => (v == null ? '' : String(v).trim());
+      for (const r of rows) {
+        const v = r.values;
+        if (r.status === 'update' && r.existingId && accountsById[r.existingId]) {
+          const id = r.existingId;
+          (['name', 'code', 'phone', 'address'] as const).forEach((k) => {
+            if (str(v[k])) updates[`accounts/${id}/${k}`] = str(v[k]);
+          });
+          updated++;
+        } else if (r.status === 'new') {
+          const id = nextAccountId(taken);
+          const acc: Account = {
+            id,
+            name: str(v.name),
+            phone: str(v.phone),
+            address: str(v.address),
+            type: 'cash',
+            createdAt: localIso(),
+            code: str(v.code),
+            category: role === 'customer' ? 'asset' : 'liability',
+            allowClientLogin: false,
+            clientPhone: '',
+            clientEmail: '',
+            clientUid: '',
+            groupId: '',
+            entityType: role === 'customer' ? 'client' : '',
+          };
+          taken.push(acc);
+          updates[`accounts/${id}`] = accountToJson(acc);
+          updates[`erp/accountMeta/${id}/role`] = role;
+          const opening = Number(v.opening) || 0;
+          // موجب = مدين لنا (زبون)، والمورد الدائن يُسجَّل بالسالب
+          if (opening)
+            drafts.push({
+              accountId: id,
+              amount: role === 'customer' ? opening : -opening,
+              currency: mainCurrency,
+              exchangeRate: 1,
+              statement: 'رصيد افتتاحي (استيراد)',
+              date: openingDate,
+            });
+          added++;
+        }
+      }
+      if (drafts.length) Object.assign(updates, buildOps(drafts).updates);
+      if (Object.keys(updates).length) await write(updates);
+      return { added, updated };
+    },
+    [accounts, accountsById, mainCurrency, buildOps, write],
+  );
+
+  const importItems = useCallback<LedgerContextType['importItems']>(
+    async (rows) => {
+      const updates: Updates = {};
+      let added = 0;
+      let updated = 0;
+      const fields = ['name', 'code', 'barcode', 'unit', 'category', 'price', 'cost', 'minQty', 'reorderQty', 'vatPct'] as const;
+      for (const r of rows) {
+        const v = r.values;
+        if (r.status === 'update' && r.existingId) {
+          fields.forEach((k) => {
+            if (v[k] !== null && v[k] !== undefined && v[k] !== '') updates[`erp/items/${r.existingId}/${k}`] = v[k];
+          });
+          updated++;
+        } else if (r.status === 'new') {
+          const id = randomId('IT');
+          updates[`erp/items/${id}`] = {
+            id,
+            name: String(v.name).trim(),
+            code: v.code || '',
+            unit: v.unit || 'قطعة',
+            category: v.category || '',
+            price: Number(v.price) || 0,
+            minQty: Number(v.minQty) || 0,
+            reorderQty: Number(v.reorderQty) || 0,
+            maxQty: 0,
+            cost: Number(v.cost) || 0,
+            prices: [],
+            barcode: v.barcode || '',
+            vatPct: Number(v.vatPct) || 0,
+            note: '',
+            createdAt: localIso(),
+          };
+          added++;
+        }
+      }
+      if (Object.keys(updates).length) await write(updates);
+      return { added, updated };
+    },
+    [write],
+  );
+
   const saveItem = useCallback<LedgerContextType['saveItem']>(
     async (i) => {
       const id = i.id || randomId('IT');
@@ -1130,6 +1233,8 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveWarehouse,
     deleteWarehouse,
     saveItem,
+    importParties,
+    importItems,
     deleteItem,
     createMove,
     deleteMove,

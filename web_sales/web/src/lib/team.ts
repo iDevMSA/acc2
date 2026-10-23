@@ -118,6 +118,7 @@ const PATH_AREAS: [RegExp, Area | 'owner' | 'any'][] = [
   [/^\/$/, 'any'],
   [/^\/hub/, 'any'],
   [/^\/alerts/, 'any'],
+  [/^\/import/, 'any'],
   [/^\/team/, 'owner'],
   [/^\/einvoice/, 'owner'],
   [/^\/settings/, 'settings'],

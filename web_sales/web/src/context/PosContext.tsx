@@ -5,6 +5,7 @@ import { db, secondaryAuth } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
 import { assertCanWrite } from '../lib/team';
 import { logAudit, valueAt } from '../lib/audit';
+import { ImportRow } from '../lib/importer';
 import { useApp } from './AppContext';
 import {
   CashRegister,
@@ -84,6 +85,8 @@ interface PosContextType {
   updateEmployee: (uid: string, data: Partial<Pick<PosEmployee, 'name' | 'phone' | 'role' | 'branchId' | 'cashRegisterId'>>) => Promise<void>;
   removeEmployee: (uid: string) => Promise<void>;
   saveProduct: (p: Partial<PosProduct> & { name: string; warehouseId: string }, meta?: ProductMeta) => Promise<string>;
+  /** استيراد منتجات من Excel إلى مخزن في كتابة واحدة */
+  importProducts: (rows: ImportRow[], warehouseId: string) => Promise<{ added: number; updated: number }>;
   deleteProduct: (id: string) => Promise<void>;
   transferStock: (productId: string, toWarehouseId: string, qty: number) => Promise<void>;
   /** يبحث في دليل الشركة ثم في قواعد المنتجات العالمية ويحفظ النتيجة */
@@ -327,6 +330,51 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [products, newKey, ownerUid, write],
   );
 
+  const importProducts = useCallback<PosContextType['importProducts']>(
+    async (rows, warehouseId) => {
+      const u: Updates = {};
+      let added = 0;
+      let updated = 0;
+      const num = (v: unknown) => Number(v) || 0;
+      for (const r of rows) {
+        const v = r.values;
+        const prev = r.existingId ? products.find((x) => x.id === r.existingId) : undefined;
+        if (r.status === 'update' && prev) {
+          const patch: Partial<PosProduct> = {};
+          if (v.barcode) patch.barcode = String(v.barcode);
+          if (v.category) patch.category = String(v.category);
+          (['sellPrice', 'costPrice', 'quantity', 'vatRate'] as const).forEach((k) => v[k] != null && (patch[k] = num(v[k])));
+          if (v.expiryDate) Object.assign(patch, { expiryDate: String(v.expiryDate), trackExpiry: true });
+          u[`products/${prev.id}`] = productToJson({ ...prev, ...patch });
+          updated++;
+        } else if (r.status === 'new') {
+          const id = newKey('products');
+          u[`products/${id}`] = productToJson({
+            id,
+            ownerUid,
+            name: String(v.name).trim(),
+            warehouseId,
+            barcode: v.barcode ? String(v.barcode) : null,
+            category: v.category ? String(v.category) : null,
+            description: null,
+            costPrice: num(v.costPrice),
+            sellPrice: num(v.sellPrice),
+            quantity: num(v.quantity),
+            vatRate: num(v.vatRate),
+            branchPrices: {},
+            expiryDate: v.expiryDate ? String(v.expiryDate) : null,
+            productionDate: null,
+            trackExpiry: !!v.expiryDate,
+          });
+          added++;
+        }
+      }
+      if (Object.keys(u).length) await write(u);
+      return { added, updated };
+    },
+    [products, newKey, ownerUid, write],
+  );
+
   const deleteProduct = useCallback<PosContextType['deleteProduct']>((id) => write({ [`products/${id}`]: null, [`productMeta/${id}`]: null }), [write]);
 
   /** تحويل كمية بين مخزنين مرتبطين: ينقص من المنتج ويزيد نفس الباركود في المخزن الآخر (أو يُنشأ) */
@@ -493,6 +541,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateEmployee,
     removeEmployee,
     saveProduct,
+    importProducts,
     deleteProduct,
     transferStock,
     resolveBarcode,

@@ -1,4 +1,4 @@
-// تصدير التقارير: Excel (CSV بترميز UTF-8 يفتحه Excel بالعربية) و PDF (طباعة منسّقة → حفظ كـ PDF).
+// تصدير التقارير: PDF (طباعة منسّقة ← حفظ كـ PDF). ملفات Excel الحقيقية (.xlsx) في lib/excel.ts.
 
 import { CompanyInfo } from './ledger';
 
