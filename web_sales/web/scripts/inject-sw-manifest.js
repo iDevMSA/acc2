@@ -31,3 +31,14 @@ const sw = fs
   .replace('[] /* __PRECACHE__ */', JSON.stringify(list, null, 2));
 fs.writeFileSync(swPath, sw);
 console.log(`sw.js: ${list.length} files precached (build ${buildId})`);
+
+// داخل موقع آخر يُفتح التطبيق على /monsati بلا شرطة أخيرة: نجعل بداية التطبيق المثبّت ونطاقه
+// بنفس الشكل حتى يبقى داخل نطاق الـService Worker ولا يظهر شريط "خارج التطبيق". المعرّف (id) لا يتغيّر
+// كي لا يعتبره المتصفح تطبيقاً جديداً.
+if (base) {
+  const manifestPath = path.join(buildDir, 'manifest.json');
+  const appManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  appManifest.start_url = base;
+  appManifest.scope = base;
+  fs.writeFileSync(manifestPath, JSON.stringify(appManifest, null, 2) + '\n');
+}
