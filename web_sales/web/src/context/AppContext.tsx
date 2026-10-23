@@ -4,6 +4,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { clearOfflineCache, watchValue } from '../lib/offlineStore';
 import { parseMember, TeamMember } from '../lib/team';
 import { Actor } from '../lib/audit';
+import { SubscriptionInfo, WebAccess, parseSubscription, webAccessOf } from '../lib/subscription';
 
 interface User {
   uid: string;
@@ -32,6 +33,10 @@ interface AppContextType {
   suspended: boolean;
   /** من يقوم بالتعديل (لسجل التعديلات) */
   actor: Actor | null;
+  /** اشتراك الموبايل (users/{uid}/subscription) واشتراك المتصفح (users/{uid}/webSubscription) */
+  mobileSubscription: SubscriptionInfo | null;
+  webSubscription: SubscriptionInfo | null;
+  webAccess: WebAccess;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -117,6 +122,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [ownerUid, employerUid]);
 
+  const [mobileSubscription, setMobileSubscription] = useState<SubscriptionInfo | null>(null);
+  const [webSubscription, setWebSubscription] = useState<SubscriptionInfo | null>(null);
+  const [subLoaded, setSubLoaded] = useState({ mobile: false, web: false });
+  const subUid = user && employerUid === null ? user.uid : null;
+
+  // الكاشير لا يقرأ عقدة المالك (قواعد Firebase) — الحدود تخص المالك فقط
+  useEffect(() => {
+    setMobileSubscription(null);
+    setWebSubscription(null);
+    setSubLoaded({ mobile: false, web: false });
+    if (!subUid) return;
+    const subs = [
+      watchValue(`users/${subUid}/subscription`, (v) => {
+        setMobileSubscription(v ? parseSubscription(v) : null);
+        setSubLoaded((l) => ({ ...l, mobile: true }));
+      }),
+      watchValue(`users/${subUid}/webSubscription`, (v) => {
+        setWebSubscription(v ? parseSubscription(v) : null);
+        setSubLoaded((l) => ({ ...l, web: true }));
+      }),
+    ];
+    return () => subs.forEach((u) => u());
+  }, [subUid]);
+
+  // قبل وصول الاشتراك (بدون اتصال ولا نسخة محلية) لا نمنع الكتابة — الحدود تُطبَّق حين نعرف الخطة
+  const webAccess = useMemo(
+    () =>
+      subLoaded.mobile && subLoaded.web
+        ? webAccessOf(subUid, mobileSubscription, webSubscription)
+        : { source: null, kind: null, unlimited: true, expired: null },
+    [subUid, mobileSubscription, webSubscription, subLoaded],
+  );
+
   const logout = async () => {
     await signOut(auth);
     await clearOfflineCache();
@@ -137,6 +175,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         member,
         suspended,
         actor,
+        mobileSubscription,
+        webSubscription,
+        webAccess,
       }}
     >
       {children}

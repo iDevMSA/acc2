@@ -6,6 +6,7 @@ import { assertCanWrite } from '../lib/team';
 import { logAudit, valueAt } from '../lib/audit';
 import { useApp } from './AppContext';
 import { ImportRow } from '../lib/importer';
+import { accountLimitError, operationLimitError } from '../lib/subscription';
 import {
   Account,
   AccountBalance,
@@ -165,7 +166,7 @@ const randomId = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.
 
 export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // للمالك: نفسه، ولعضو الفريق: المالك (employeeOwnerMap)
-  const { ownerUid, member, actor } = useApp();
+  const { ownerUid, member, actor, webAccess } = useApp();
   const uid = ownerUid;
 
   const [accountsRaw, setAccountsRaw] = useState<any>(undefined);
@@ -367,9 +368,12 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           throw new Error(`الفترة مُقفلة حتى ${closed} — لا يمكن إدخال قيود بتاريخ سابق`);
         }
       }
+      const valid = drafts.filter((d) => d.accountId && Number.isFinite(d.amount) && d.amount !== 0);
+      // حدود خطة المتصفح المجانية (نفس DataService.canAddOperation في التطبيق)
+      const limit = valid.length ? operationLimitError(webAccess, operations.length, valid.length) : null;
+      if (limit) throw new Error(limit);
       const updates: Updates = {};
-      const ops: Operation[] = drafts
-        .filter((d) => d.accountId && Number.isFinite(d.amount) && d.amount !== 0)
+      const ops: Operation[] = valid
         .map((d) => {
           const rate = d.exchangeRate || 1;
           const op: Operation = {
@@ -398,7 +402,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       return { ops, updates };
     },
-    [accountsById, accountMeta, settings.closedUntil, mainCurrency, uid, company.name],
+    [accountsById, accountMeta, settings.closedUntil, mainCurrency, uid, company.name, webAccess, operations.length],
   );
 
   const opRemovals = useCallback(
@@ -423,6 +427,11 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const existing = a.id ? accountsById[a.id] : undefined;
       let id = a.id || '';
       if (!existing) {
+        const limit = accountLimitError(
+          webAccess,
+          new Set([...accounts.map((x) => x.id), ...Array.from(pendingIds.current)]).size,
+        );
+        if (limit) throw new Error(limit);
         const taken = [...accounts, ...Array.from(pendingIds.current).map((pid) => ({ id: pid }) as Account)];
         id = nextAccountId(taken);
         pendingIds.current.add(id);
@@ -451,7 +460,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await write(updates);
       return id;
     },
-    [accounts, accountsById, write],
+    [accounts, accountsById, write, webAccess],
   );
 
   const deleteAccount = useCallback<LedgerContextType['deleteAccount']>(
@@ -655,6 +664,8 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       let added = 0;
       let updated = 0;
       const str = (v: unknown) => (v == null ? '' : String(v).trim());
+      const limit = accountLimitError(webAccess, accounts.length, rows.filter((r) => r.status === 'new').length);
+      if (limit) throw new Error(limit);
       for (const r of rows) {
         const v = r.values;
         if (r.status === 'update' && r.existingId && accountsById[r.existingId]) {
@@ -702,7 +713,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (Object.keys(updates).length) await write(updates);
       return { added, updated };
     },
-    [accounts, accountsById, mainCurrency, buildOps, write],
+    [accounts, accountsById, mainCurrency, buildOps, write, webAccess],
   );
 
   const importItems = useCallback<LedgerContextType['importItems']>(

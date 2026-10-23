@@ -27,6 +27,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/settings', label: 'الإعدادات', icon: 'settings', description: 'معلومات الشركة والعملة والمزامنة' },
       { path: '/team', label: 'الفريق والصلاحيات', icon: 'lock', description: 'حسابات المحاسب ومدير الفرع والكاشير والمدقق وصلاحياتهم' },
       { path: '/audit', label: 'سجل التعديلات', icon: 'history', description: 'من غيّر ماذا ومتى، مع القيمة قبل التعديل وبعده' },
+      { path: '/subscription', label: 'الاشتراك', icon: 'sparkle', description: 'خطط الموبايل والمتصفح وحالة اشتراكك' },
     ],
   },
   {

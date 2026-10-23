@@ -23,6 +23,7 @@ import Notes from './pages/Notes';
 import Payroll from './pages/Payroll';
 import Rates from './pages/Rates';
 import Charts from './pages/Charts';
+import Subscription from './pages/Subscription';
 import PosAdmin from './pages/pos/PosAdmin';
 import Cashier from './pages/pos/Cashier';
 import { BrandMark } from './components/Sidebar';
@@ -103,6 +104,7 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/hub', <Hub />],
   ['/settings', <Settings />],
   ['/settings/shortcuts', <ShortcutsSettings />],
+  ['/subscription', <Subscription />],
   ['/accounts', <Accounts />],
   ['/accounts/:id', <AccountDetail />],
   ['/accounting', <Accounting />],
@@ -133,6 +135,7 @@ function App() {
       <Router basename={process.env.PUBLIC_URL || undefined}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<LoginPage mode="signup" />} />
           {PAGES.map(([path, page]) => (
             <Route key={path} path={path} element={<ProtectedLayout>{page}</ProtectedLayout>} />
           ))}
