@@ -31,6 +31,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/accounting', label: 'القيود', icon: 'receipt', description: 'سجل القيود العام' },
       { path: '/reports', label: 'التقارير', icon: 'chart', description: 'مركز التقارير المالية', mobile: true },
       { path: '/charts', label: 'الرسوم البيانية', icon: 'trendUp', description: 'تحليل الأداء عبر الأشهر' },
+      { path: '/taxes', label: 'الضرائب', icon: 'percent', description: 'إعدادات ضريبة الدولة والتقرير الضريبي' },
     ],
   },
   {

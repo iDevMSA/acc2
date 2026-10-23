@@ -17,6 +17,7 @@
     "autoprefixer": "10.6.1",
     "firebase": "12.19.0",
     "postcss": "8.5.28",
+    "qrcode.react": "4.2.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "7.18.4",
