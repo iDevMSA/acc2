@@ -515,7 +515,14 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 
   const saveSettings = useCallback<LedgerContextType['saveSettings']>(
-    (s) => write(Object.fromEntries(Object.entries(s).map(([k, v]) => [`erp/settings/${k}`, v ?? null]))),
+    (s) => {
+      const updates: Record<string, unknown> = Object.fromEntries(
+        Object.entries(s).map(([k, v]) => [`erp/settings/${k}`, v ?? null]),
+      );
+      // تطبيق الهاتف يقرأ نفس العقدة ويأخذ القيمة الأحدث حسب هذا الوقت
+      if ('mainCurrency' in s) updates['erp/settings/mainCurrencyUpdatedAt'] = Date.now();
+      return write(updates);
+    },
     [write],
   );
 

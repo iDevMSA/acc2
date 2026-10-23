@@ -397,7 +397,7 @@ const SettingsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
       onClose={onClose}
       size="sm"
       title="العملة الرئيسية"
-      subtitle="العملة التي تُحسب بها الأرصدة والتقارير (يجب أن تطابق العملة الرئيسية في تطبيق الهاتف)"
+      subtitle="العملة التي تُحسب بها الأرصدة والتقارير (تتزامن تلقائياً مع تطبيق الهاتف)"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>

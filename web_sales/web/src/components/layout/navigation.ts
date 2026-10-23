@@ -21,6 +21,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/', label: 'الرئيسية', icon: 'home', description: 'نظرة عامة على أداء اليوم', mobile: true },
       { path: '/hub', label: 'الأقسام', icon: 'grid', description: 'كل النوافذ والأدوات مرتبة حسب القسم' },
+      { path: '/alerts', label: 'التنبيهات', icon: 'bell', description: 'مخزون منخفض وفواتير مستحقة وديون متأخرة، وإرسالها للهاتف والبريد' },
       { path: '/settings', label: 'الإعدادات', icon: 'settings', description: 'معلومات الشركة والعملة والمزامنة' },
       { path: '/subscription', label: 'الاشتراك', icon: 'sparkle', description: 'خطط الموبايل والمتصفح وحالة اشتراكك' },
     ],
@@ -32,6 +33,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/accounting', label: 'القيود', icon: 'receipt', description: 'سجل القيود العام' },
       { path: '/reports', label: 'التقارير', icon: 'chart', description: 'مركز التقارير المالية', mobile: true },
       { path: '/charts', label: 'الرسوم البيانية', icon: 'trendUp', description: 'تحليل الأداء عبر الأشهر' },
+      { path: '/taxes', label: 'الضرائب', icon: 'percent', description: 'إعدادات ضريبة الدولة والتقرير الضريبي' },
+      { path: '/einvoice', label: 'الفوترة الإلكترونية', icon: 'shield', description: 'ZATCA المرحلة الثانية ومنظومة ETA المصرية' },
     ],
   },
   {
