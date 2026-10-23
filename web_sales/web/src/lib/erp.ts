@@ -9,6 +9,8 @@ import { AccountExtra } from './trade';
 
 export interface ErpSettings {
   mainCurrency?: string;
+  /** وقت آخر تغيير للعملة (ms) — الهاتف والويب يأخذان الأحدث */
+  mainCurrencyUpdatedAt?: number;
   /** حساب "شيكات واردة / أوراق قبض" */
   chequesInAccountId?: string;
   /** حساب "شيكات صادرة / أوراق دفع" */
