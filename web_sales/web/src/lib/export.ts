@@ -32,6 +32,9 @@ const download = (blob: Blob, filename: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
+/** تنزيل نص كملف (ملفات الفوترة الإلكترونية XML/JSON) */
+export const downloadFile = (name: string, content: string, type: string) => download(new Blob([content], { type: `${type};charset=utf-8` }), name);
+
 export const exportCsv = (t: ReportTable) => {
   const esc = (v: string | number) => {
     const s = String(fmtCell(v));

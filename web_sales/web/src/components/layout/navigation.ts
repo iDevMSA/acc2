@@ -32,6 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/reports', label: 'التقارير', icon: 'chart', description: 'مركز التقارير المالية', mobile: true },
       { path: '/charts', label: 'الرسوم البيانية', icon: 'trendUp', description: 'تحليل الأداء عبر الأشهر' },
       { path: '/taxes', label: 'الضرائب', icon: 'percent', description: 'إعدادات ضريبة الدولة والتقرير الضريبي' },
+      { path: '/einvoice', label: 'الفوترة الإلكترونية', icon: 'shield', description: 'ZATCA المرحلة الثانية ومنظومة ETA المصرية' },
     ],
   },
   {
