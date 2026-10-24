@@ -1,7 +1,8 @@
 import React from 'react';
 import { Button, cx } from '../ui/primitives';
 import { Period, PERIOD_LABELS, PeriodPreset, periodFromPreset } from '../../lib/ledger';
-import { ReportTable, exportCsv, printReport } from '../../lib/export';
+import { ReportTable, printReport } from '../../lib/export';
+import { exportXlsx } from '../../lib/excel';
 import { useLedger } from '../../context/LedgerContext';
 import { formatNumber } from '../../lib/format';
 
@@ -55,7 +56,7 @@ export const ExportButtons: React.FC<{ build: () => ReportTable; disabled?: bool
       <Button variant="secondary" size="sm" icon="download" disabled={disabled} onClick={() => printReport(build(), company)}>
         PDF
       </Button>
-      <Button variant="secondary" size="sm" icon="download" disabled={disabled} onClick={() => exportCsv(build())}>
+      <Button variant="secondary" size="sm" icon="download" disabled={disabled} onClick={() => exportXlsx(build(), company)}>
         Excel
       </Button>
     </div>

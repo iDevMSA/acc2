@@ -1,4 +1,5 @@
 import { IconName } from '../ui/Icon';
+import { canOpen, TeamMember } from '../../lib/team';
 
 export interface NavItem {
   path: string;
@@ -21,8 +22,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/', label: 'الرئيسية', icon: 'home', description: 'نظرة عامة على أداء اليوم', mobile: true },
       { path: '/hub', label: 'الأقسام', icon: 'grid', description: 'كل النوافذ والأدوات مرتبة حسب القسم' },
+      { path: '/import', label: 'استيراد من Excel', icon: 'arrowIn', description: 'إضافة الزبائن والموردين والأصناف ومنتجات نقطة البيع من ملف Excel' },
       { path: '/alerts', label: 'التنبيهات', icon: 'bell', description: 'مخزون منخفض وفواتير مستحقة وديون متأخرة، وإرسالها للهاتف والبريد' },
       { path: '/settings', label: 'الإعدادات', icon: 'settings', description: 'معلومات الشركة والعملة والمزامنة' },
+      { path: '/team', label: 'الفريق والصلاحيات', icon: 'lock', description: 'حسابات المحاسب ومدير الفرع والكاشير والمدقق وصلاحياتهم' },
+      { path: '/audit', label: 'سجل التعديلات', icon: 'history', description: 'من غيّر ماذا ومتى، مع القيمة قبل التعديل وبعده' },
       { path: '/subscription', label: 'الاشتراك', icon: 'sparkle', description: 'خطط الموبايل والمتصفح وحالة اشتراكك' },
     ],
   },
@@ -69,6 +73,12 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 const ALL = NAV_GROUPS.flatMap((g) => g.items);
+
+/** الأقسام التي يراها عضو الفريق حسب صلاحياته (null = المالك: كل شيء) */
+export const visibleGroups = (member: TeamMember | null): NavGroup[] =>
+  member
+    ? NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => canOpen(member, i.path)) })).filter((g) => g.items.length)
+    : NAV_GROUPS;
 
 /** أطول مسار يطابق بداية الرابط (حتى تُعلَّم "الحسابات" في صفحة حساب محدد) */
 export const findNavItem = (pathname: string): NavItem | undefined =>

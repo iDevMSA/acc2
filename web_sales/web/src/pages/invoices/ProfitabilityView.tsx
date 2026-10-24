@@ -9,8 +9,8 @@ import { formatMoney, formatNumber, formatPercent } from '../../lib/format';
 const marginTone = (margin: number): Tone => (margin >= 25 ? 'success' : margin >= 10 ? 'warning' : 'danger');
 
 const ProfitabilityView: React.FC = () => {
-  const { user, currency } = useApp();
-  const { data: profitabilityData, loading } = useInvoiceProfitability(user?.uid || null);
+  const { ownerUid, currency } = useApp();
+  const { data: profitabilityData, loading } = useInvoiceProfitability(ownerUid);
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 

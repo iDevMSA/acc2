@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import Icon from './ui/Icon';
 import { cx } from './ui/primitives';
-import { NAV_GROUPS } from './layout/navigation';
+import { visibleGroups } from './layout/navigation';
 import InstallButton from './pwa/InstallButton';
 
 interface SidebarProps {
@@ -36,7 +36,7 @@ export const BrandMark: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed: collapsedPref, onToggle, mobileOpen, onMobileClose }) => {
-  const { logout, companyInfo, user } = useApp();
+  const { logout, companyInfo, user, member } = useApp();
   const companyName = companyInfo?.name || 'شركتك';
   // الدرج على الجوال يُعرض دائماً موسّعاً
   const collapsed = collapsedPref && !mobileOpen;
@@ -84,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed: collapsedPref, onToggle, m
 
         {/* التنقل */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {NAV_GROUPS.map((group) => (
+          {visibleGroups(member).map((group) => (
             <div key={group.label} className="mb-5">
               {!collapsed && (
                 <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-white/35">

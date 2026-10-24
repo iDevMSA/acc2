@@ -7,6 +7,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
 import { Alert, AlertSettings, buildAlerts, todayIn, withDefaults } from '../lib/alerts';
+import { assertCanWrite } from '../lib/team';
 import { useApp } from './AppContext';
 import { useLedger } from './LedgerContext';
 import { usePos } from './PosContext';
@@ -68,8 +69,8 @@ const swRegistration = async () => {
 };
 
 export const AlertsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useApp();
-  const uid = user?.uid || null;
+  const { ownerUid, member } = useApp();
+  const uid = ownerUid;
   const ledger = useLedger();
   const { products } = usePos();
   const [raw, setRaw] = useState<{ settings?: AlertSettings | null; dismissed?: Record<string, boolean> | null; status?: AlertsStatus | null; push?: Record<string, unknown> | null }>({});
@@ -129,9 +130,14 @@ export const AlertsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const write = useCallback(
     (updates: Record<string, unknown>) => {
       if (!uid) return Promise.reject(new Error('لم يتم تسجيل الدخول'));
+      try {
+        assertCanWrite(member, Object.keys(updates).map((k) => `alerts/${k}`));
+      } catch (e) {
+        return Promise.reject(e);
+      }
       return update(ref(db, `users/${uid}/alerts`), updates);
     },
-    [uid],
+    [uid, member],
   );
 
   const saveSettings = useCallback<AlertsContextType['saveSettings']>(

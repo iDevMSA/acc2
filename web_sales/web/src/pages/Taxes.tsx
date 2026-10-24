@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { can } from '../lib/team';
 import { useApp } from '../context/AppContext';
 import { useLedger } from '../context/LedgerContext';
 import { useTaxSettings } from '../hooks/useTaxSettings';
@@ -26,10 +27,10 @@ const KIND_LABEL: Record<TradeTaxDoc['kind'], string> = {
 const defaultPeriod = (filing?: TaxSettings['filing']): Period => periodFromPreset(filing === 'monthly' ? 'month' : 'quarter');
 
 const Taxes: React.FC = () => {
-  const { user, currency } = useApp();
+  const { ownerUid, currency, member } = useApp();
   const { invoices, notes, accountsById, roleOf, mainCurrency } = useLedger();
-  const { settings, loading, save } = useTaxSettings(user?.uid || null);
-  const { invoices: posList } = useSalesInvoices(user?.uid || null);
+  const { settings, loading, save } = useTaxSettings(ownerUid);
+  const { invoices: posList } = useSalesInvoices(ownerUid);
 
   const [countryCode, setCountryCode] = useState('');
   const [trn, setTrn] = useState('');
@@ -113,6 +114,7 @@ const Taxes: React.FC = () => {
 
   const onSave = async () => {
     if (!country) return;
+    if (!can(member, 'taxes', 'edit')) return setMessage({ ok: false, text: 'ليس لديك صلاحية تعديل إعدادات الضريبة' });
     if (isNaN(rate) || rate < 0 || rate > 100) return setMessage({ ok: false, text: 'المعدل يجب أن يكون بين 0 و 100' });
     if (!reduced) return setMessage({ ok: false, text: 'المعدلات المخفضة يجب أن تكون أرقاماً بين 0 و 100 مفصولة بفواصل' });
     if (!trnValid) return setMessage({ ok: false, text: `${country.trnLabel} غير صحيح${country.trnHint ? ` (${country.trnHint})` : ''}` });
