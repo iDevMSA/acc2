@@ -258,6 +258,8 @@ export interface AccountExtra {
   /** حد الائتمان: تنبيه عند تجاوز رصيد الزبون له */
   creditLimit?: number;
   employee?: EmployeeInfo;
+  /** باب الموازنة الحكومية ('1'..'4') — يضبطه قالب دليل الحسابات الحكومي */
+  chapter?: string;
 }
 
 /** هل يخالف الرصيد طبيعة الحساب؟ */

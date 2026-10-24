@@ -7,6 +7,23 @@ import { logAudit, valueAt } from '../lib/audit';
 import { useApp } from './AppContext';
 import { ImportRow } from '../lib/importer';
 import { accountLimitError, operationLimitError } from '../lib/subscription';
+import { BusinessProfile, parseProfile } from '../lib/localization';
+import { ChartPlanRow } from '../lib/coaTemplates';
+import {
+  ApprovalLevel,
+  BudgetTransfer,
+  Commitment,
+  DEFAULT_LEVEL,
+  budgetLines,
+  fyKeyOf,
+  fyRangeOfKey,
+  nextLevel,
+  parseCommitment,
+  parseLevels,
+  parseTransfer,
+} from '../lib/budget';
+import { setPrintProfile } from '../lib/export';
+import { findTaxCountry } from '../tax/countries';
 import {
   Account,
   AccountBalance,
@@ -18,6 +35,7 @@ import {
   localIso,
   newOperationId,
   nextAccountId,
+  setFiscalStartMonth,
   operationToJson,
   parseAccount,
   parseOperation,
@@ -153,6 +171,32 @@ interface LedgerContextType {
   deleteRate: (id: string) => Promise<void>;
   /** قيد إقفال الإيرادات والمصروفات في حساب الأرباح المدوّرة حتى تاريخ */
   closePeriod: (until: string, retainedAccountId: string) => Promise<number>;
+  /** إعداد المنشأة (الدولة والقطاع والنشاط والسنة المالية والتقويم) — erp/profile */
+  profile: BusinessProfile | null;
+  /** يحفظ الإعداد وينشئ حسابات القالب المختارة (الجديدة فقط) ويربط حسابات الإعدادات الفارغة */
+  applySetup: (input: SetupInput) => Promise<{ created: number; linked: number }>;
+  /* الموازنة والارتباطات والمشتريات */
+  appropriations: Record<string, Record<string, number>>;
+  budgetTransfers: BudgetTransfer[];
+  commitments: Commitment[];
+  approvalLevels: ApprovalLevel[];
+  saveAppropriations: (fy: string, values: Record<string, number>) => Promise<void>;
+  createTransfer: (t: Pick<BudgetTransfer, 'fy' | 'date' | 'fromAccountId' | 'toAccountId' | 'amount' | 'note'>) => Promise<string>;
+  saveApprovalLevels: (levels: Array<Omit<ApprovalLevel, 'id' | 'order'> & { id?: string }>) => Promise<void>;
+  createCommitment: (c: Pick<Commitment, 'date' | 'accountId' | 'description' | 'amount' | 'supplierId'>) => Promise<string>;
+  decideCommitment: (id: string, action: 'approve' | 'reject', note?: string) => Promise<void>;
+  orderCommitment: (id: string, o: { supplierId: string; poDate: string; deliveryTerms?: string }) => Promise<void>;
+  receiveCommitment: (id: string, r: { receivedDate: string; receivedNote?: string }) => Promise<void>;
+  payCommitment: (id: string, p: { amount: number; payAccountId: string; date: string }) => Promise<void>;
+  cancelCommitment: (id: string, reason: string) => Promise<void>;
+}
+
+export interface SetupInput {
+  profile: BusinessProfile;
+  /** صفوف القالب المختارة: الجديد يُنشأ، والموجود يُربط فقط */
+  rows: ChartPlanRow[];
+  /** تغيير العملة الرئيسية (مسموح فقط قبل وجود أي قيود) */
+  mainCurrency?: string;
 }
 
 export type InvoiceInput = Omit<Invoice, 'id' | 'number' | 'totals' | 'moveIds' | 'opIds' | 'createdAt'>;
@@ -167,6 +211,7 @@ const randomId = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.
 export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // للمالك: نفسه، ولعضو الفريق: المالك (employeeOwnerMap)
   const { ownerUid, member, actor, webAccess } = useApp();
+  const isOwner = !member;
   const uid = ownerUid;
 
   const [accountsRaw, setAccountsRaw] = useState<any>(undefined);
@@ -176,6 +221,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [erpRaw, setErpRaw] = useState<any>(null);
   const [groupsRaw, setGroupsRaw] = useState<any>(null);
   const [salesCurrency, setSalesCurrency] = useState<string | null>(null);
+  const [taxRaw, setTaxRaw] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -188,6 +234,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       watchValue(`users/${uid}/erp`, setErpRaw),
       watchValue(`users/${uid}/accountGroups`, setGroupsRaw),
       watchValue(`sales/${uid}/settings/currency`, (v) => setSalesCurrency(typeof v === 'string' ? v : null)),
+      watchValue(`sales/${uid}/taxSettings`, setTaxRaw),
     ];
     return () => subs.forEach((u) => u());
   }, [uid]);
@@ -226,6 +273,20 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const settings: ErpSettings = useMemo(() => erp.settings || {}, [erp]);
   const accountMeta: Record<string, AccountMeta> = useMemo(() => erp.accountMeta || {}, [erp]);
   const mainCurrency = settings.mainCurrency || salesCurrency || 'USD';
+  const profile = useMemo(() => parseProfile(erp.profile), [erp]);
+
+  // السنة المالية والترويسة الرسمية تُطبَّق على كل التقارير والمطبوعات
+  useEffect(() => {
+    setFiscalStartMonth(profile?.fiscalYearStartMonth ?? 1);
+    const tc = findTaxCountry(taxRaw?.countryCode || profile?.country);
+    setPrintProfile({
+      calendar: profile?.calendar ?? 'gregorian',
+      crLabel: profile?.sector === 'government' ? 'رمز الجهة' : 'السجل التجاري',
+      crNumber: profile?.crNumber || '',
+      taxLabel: tc?.trnLabel,
+      taxNumber: typeof taxRaw?.trn === 'string' ? taxRaw.trn : '',
+    });
+  }, [profile, taxRaw]);
 
   const company: CompanyInfo = {
     name: companyRaw?.name || '',
@@ -1199,6 +1260,259 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 
 
+  const applySetup = useCallback<LedgerContextType['applySetup']>(
+    async ({ profile: p, rows, mainCurrency: newCurrency }) => {
+      const fresh = rows.filter((r) => !r.existing);
+      const limit = accountLimitError(webAccess, accounts.length, fresh.length);
+      if (limit) throw new Error(limit);
+      const updates: Updates = {};
+      const taken: Account[] = [...accounts];
+      const linkedSettings = new Set<string>();
+      let created = 0;
+      for (const r of rows) {
+        let id = r.existing?.id;
+        if (!id) {
+          id = nextAccountId(taken);
+          const acc: Account = {
+            id,
+            name: r.tpl.name,
+            phone: '',
+            address: '',
+            type: r.tpl.type || 'cash',
+            createdAt: localIso(),
+            code: r.codeTaken ? '' : r.tpl.code,
+            category: r.tpl.category,
+            allowClientLogin: false,
+            clientPhone: '',
+            clientEmail: '',
+            clientUid: '',
+            groupId: '',
+            entityType: '',
+          };
+          taken.push(acc);
+          updates[`accounts/${id}`] = accountToJson(acc);
+          if (r.tpl.role) updates[`erp/accountMeta/${id}/role`] = r.tpl.role;
+          created++;
+        }
+        if (r.tpl.chapter && !accountMeta[id]?.chapter) updates[`erp/accountMeta/${id}/chapter`] = r.tpl.chapter;
+        const key = r.tpl.setting;
+        if (key && !linkedSettings.has(key)) {
+          const cur = settings[key];
+          if (!cur || !accountsById[cur]) {
+            updates[`erp/settings/${key}`] = id;
+            linkedSettings.add(key);
+          }
+        }
+      }
+      updates['erp/profile'] = { ...p, crNumber: p.crNumber || '', setupAt: localIso() };
+      if (newCurrency && newCurrency !== mainCurrency) {
+        if (operations.length) throw new Error('لا يمكن تغيير العملة الرئيسية بعد وجود قيود');
+        updates['erp/settings/mainCurrency'] = newCurrency;
+        updates['erp/settings/mainCurrencyUpdatedAt'] = Date.now();
+      }
+      await write(updates);
+      return { created, linked: linkedSettings.size };
+    },
+    [accounts, accountsById, accountMeta, settings, mainCurrency, operations.length, webAccess, write],
+  );
+
+  /* ───────── الموازنة والارتباطات ───────── */
+
+  const appropriations = useMemo(() => {
+    const out: Record<string, Record<string, number>> = {};
+    Object.entries((erp.budgets as Record<string, any>) || {}).forEach(([fy, lines]) => {
+      out[fy] = {};
+      Object.entries((lines as Record<string, any>) || {}).forEach(([acc, v]) => (out[fy][acc] = Number(v?.appropriation) || 0));
+    });
+    return out;
+  }, [erp]);
+  const budgetTransfers = useMemo(() => objToList(erp.budgetTransfers, parseTransfer).sort((a, b) => b.number - a.number), [erp]);
+  const commitments = useMemo(() => objToList(erp.commitments, parseCommitment).sort((a, b) => b.number - a.number), [erp]);
+  const approvalLevels = useMemo(() => parseLevels(erp.approvalLevels), [erp]);
+  const fyStart = profile?.fiscalYearStartMonth ?? 1;
+
+  /** المتاح في البند الآن (الاعتماد بعد المناقلات − المرتبط − المصروف) */
+  const lineOf = useCallback(
+    (fy: string, accountId: string) =>
+      budgetLines(
+        accounts.filter((a) => a.id === accountId),
+        accountMeta,
+        { appropriations: appropriations[fy] || {}, transfers: budgetTransfers, commitments },
+        opsByAccount,
+        fyRangeOfKey(fy, fyStart),
+        fy,
+      )[0],
+    [accounts, accountMeta, appropriations, budgetTransfers, commitments, opsByAccount, fyStart],
+  );
+
+  const who = () => ({ by: actor?.uid || uid || '', byName: actor?.name || '' });
+  const getCommitment = (id: string) => {
+    const c = commitments.find((x) => x.id === id);
+    if (!c) throw new Error('الطلب غير موجود');
+    return c;
+  };
+  const money = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+  const saveAppropriations = useCallback<LedgerContextType['saveAppropriations']>(
+    async (fy, values) => {
+      const updates: Updates = {};
+      Object.entries(values).forEach(([acc, v]) => {
+        if (!Number.isFinite(v) || v < 0) throw new Error('الاعتماد يجب أن يكون رقماً موجباً');
+        updates[`erp/budgets/${fy}/${acc}`] = v ? { appropriation: v } : null;
+      });
+      await write(updates);
+    },
+    [write],
+  );
+
+  const createTransfer = useCallback<LedgerContextType['createTransfer']>(
+    async (t) => {
+      if (!(t.amount > 0)) throw new Error('أدخل مبلغ المناقلة');
+      if (t.fromAccountId === t.toAccountId) throw new Error('اختر بندين مختلفين');
+      if (t.fromAccountId) {
+        const from = lineOf(t.fy, t.fromAccountId);
+        if (!from || from.available < t.amount) throw new Error(`المتاح في البند المنقول منه ${money(from?.available || 0)} فقط`);
+      }
+      const id = randomId('BT');
+      const number = budgetTransfers.reduce((m, x) => Math.max(m, x.number), 0) + 1;
+      await write({ [`erp/budgetTransfers/${id}`]: { ...t, fromAccountId: t.fromAccountId || null, number, ...who(), createdAt: localIso() } });
+      return id;
+    },
+    [lineOf, budgetTransfers, write], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const saveApprovalLevels = useCallback<LedgerContextType['saveApprovalLevels']>(
+    async (levels) => {
+      if (!isOwner) throw new Error('مستويات الاعتماد يحددها المالك فقط');
+      const node: Record<string, unknown> = {};
+      levels.forEach((l, i) => {
+        if (!l.name.trim()) throw new Error('أدخل اسم كل مستوى');
+        node[l.id || randomId('AL')] = { name: l.name.trim(), upTo: l.upTo ?? null, approverUid: l.approverUid || null, order: i };
+      });
+      await write({ 'erp/approvalLevels': Object.keys(node).length ? node : null });
+    },
+    [isOwner, write],
+  );
+
+  const createCommitment = useCallback<LedgerContextType['createCommitment']>(
+    async (c) => {
+      if (!c.accountId) throw new Error('اختر بند الموازنة');
+      if (!(c.amount > 0)) throw new Error('أدخل المبلغ التقديري');
+      if (!c.description.trim()) throw new Error('اكتب وصف المطلوب شراؤه');
+      const fy = fyKeyOf(c.date, fyStart);
+      const id = randomId('PR');
+      const number = commitments.reduce((m, x) => Math.max(m, x.number), 0) + 1;
+      await write({
+        [`erp/commitments/${id}`]: {
+          ...c,
+          supplierId: c.supplierId || null,
+          description: c.description.trim(),
+          fy,
+          number,
+          status: 'requested',
+          requestedBy: actor?.uid || uid || '',
+          requestedByName: actor?.name || '',
+          approvals: [],
+          opIds: [],
+          createdAt: localIso(),
+        },
+      });
+      return id;
+    },
+    [commitments, fyStart, actor, uid, write],
+  );
+
+  const decideCommitment = useCallback<LedgerContextType['decideCommitment']>(
+    async (id, action, note) => {
+      const c = getCommitment(id);
+      if (c.status !== 'requested') throw new Error('الطلب ليس قيد الاعتماد');
+      const levels = approvalLevels.length ? approvalLevels : [DEFAULT_LEVEL];
+      const level = nextLevel(c, levels);
+      if (!level) throw new Error('اكتملت الاعتمادات');
+      if (!isOwner && level.approverUid && level.approverUid !== actor?.uid) throw new Error(`هذا المستوى (${level.name}) يعتمده شخص آخر`);
+      const step = { levelId: level.id, levelName: level.name, action, ...who(), at: localIso(), note: note || '' };
+      const approvals = [...c.approvals, step];
+      let status: Commitment['status'] = 'requested';
+      if (action === 'reject') status = 'rejected';
+      else if (!nextLevel({ ...c, approvals }, levels)) {
+        // آخر اعتماد = ارتباط: يُحجز المبلغ من البند بشرط كفاية المتاح
+        const line = lineOf(c.fy, c.accountId);
+        if (!line || line.available < c.amount)
+          throw new Error(`لا يكفي المتاح في البند (${money(line?.available || 0)}) لارتباط ${money(c.amount)}. أجرِ مناقلة أولاً.`);
+        status = 'committed';
+      }
+      await write({ [`erp/commitments/${id}/approvals`]: approvals, [`erp/commitments/${id}/status`]: status });
+    },
+    [commitments, approvalLevels, isOwner, actor, lineOf, write], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const orderCommitment = useCallback<LedgerContextType['orderCommitment']>(
+    async (id, o) => {
+      const c = getCommitment(id);
+      if (c.status !== 'committed') throw new Error('أمر الشراء يصدر بعد الارتباط فقط');
+      if (!o.supplierId) throw new Error('اختر المورد');
+      const poNumber = commitments.reduce((m, x) => Math.max(m, x.poNumber || 0), 0) + 1;
+      await write({
+        [`erp/commitments/${id}/status`]: 'ordered',
+        [`erp/commitments/${id}/supplierId`]: o.supplierId,
+        [`erp/commitments/${id}/poDate`]: o.poDate,
+        [`erp/commitments/${id}/deliveryTerms`]: o.deliveryTerms || '',
+        [`erp/commitments/${id}/poNumber`]: poNumber,
+      });
+    },
+    [commitments, write], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const receiveCommitment = useCallback<LedgerContextType['receiveCommitment']>(
+    async (id, r) => {
+      const c = getCommitment(id);
+      if (c.status !== 'ordered') throw new Error('الاستلام يكون بعد أمر الشراء');
+      await write({
+        [`erp/commitments/${id}/status`]: 'received',
+        [`erp/commitments/${id}/receivedDate`]: r.receivedDate,
+        [`erp/commitments/${id}/receivedNote`]: r.receivedNote || '',
+      });
+    },
+    [commitments, write], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const payCommitment = useCallback<LedgerContextType['payCommitment']>(
+    async (id, p) => {
+      const c = getCommitment(id);
+      if (c.status !== 'received') throw new Error('أمر الصرف يكون بعد محضر الاستلام');
+      if (!(p.amount > 0) || p.amount > c.amount + 1e-9) throw new Error(`مبلغ الصرف بين 0 و${money(c.amount)} (المبلغ المرتبط)`);
+      if (!p.payAccountId) throw new Error('اختر حساب الصرف');
+      const payNumber = commitments.reduce((m, x) => Math.max(m, x.payNumber || 0), 0) + 1;
+      const tag = `أمر صرف رقم ${payNumber} (أمر شراء ${c.poNumber || '—'})`;
+      const supplier = c.supplierId ? accountsById[c.supplierId]?.name : '';
+      const base = { currency: mainCurrency, exchangeRate: 1, date: p.date };
+      const { ops, updates } = buildOps([
+        { ...base, accountId: c.accountId, amount: p.amount, statement: `${tag}: ${c.description}${supplier ? ` — ${supplier}` : ''}` },
+        { ...base, accountId: p.payAccountId, amount: -p.amount, statement: `${tag}: ${c.description}` },
+      ]);
+      Object.assign(updates, {
+        [`erp/commitments/${id}/status`]: 'paid',
+        [`erp/commitments/${id}/paidAmount`]: p.amount,
+        [`erp/commitments/${id}/paidDate`]: p.date,
+        [`erp/commitments/${id}/payAccountId`]: p.payAccountId,
+        [`erp/commitments/${id}/payNumber`]: payNumber,
+        [`erp/commitments/${id}/opIds`]: ops.map((o) => o.id),
+      });
+      await write(updates);
+    },
+    [commitments, accountsById, mainCurrency, buildOps, write], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const cancelCommitment = useCallback<LedgerContextType['cancelCommitment']>(
+    async (id, reason) => {
+      const c = getCommitment(id);
+      if (c.status === 'paid') throw new Error('لا يمكن إلغاء طلب صُرف. احذف قيود أمر الصرف أولاً من سجل القيود.');
+      if (c.status === 'cancelled' || c.status === 'rejected') return;
+      await write({ [`erp/commitments/${id}/status`]: 'cancelled', [`erp/commitments/${id}/cancelReason`]: reason || '' });
+    },
+    [commitments, write], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   const value: LedgerContextType = {
     ready: accountsRaw !== undefined && opsRaw !== undefined,
     accounts,
@@ -1265,6 +1579,21 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveRate,
     deleteRate,
     closePeriod,
+    profile,
+    applySetup,
+    appropriations,
+    budgetTransfers,
+    commitments,
+    approvalLevels,
+    saveAppropriations,
+    createTransfer,
+    saveApprovalLevels,
+    createCommitment,
+    decideCommitment,
+    orderCommitment,
+    receiveCommitment,
+    payCommitment,
+    cancelCommitment,
   };
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
