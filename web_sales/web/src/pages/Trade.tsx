@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useNewParam } from '../hooks/useNewParam';
 import { useLedger } from '../context/LedgerContext';
 import { Badge, Button, Card, PageHeader, StatCard, Tabs, cx } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
@@ -52,6 +53,7 @@ const Trade: React.FC = () => {
   const [detail, setDetail] = useState<Invoice | null>(null);
   const [confirm, setConfirm] = useState<{ title: string; message: string; run: () => Promise<void> } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  useNewParam((k) => (k === 'sale' || k === 'purchase') && setModal({ mode: { doc: 'invoice', kind: k } }));
 
   const setParam = (k: string, v: string, def: string) => {
     const next = new URLSearchParams(params);

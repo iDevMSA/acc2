@@ -4,8 +4,8 @@
       ".read": "auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1'",
       ".write": "auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1'",
       "$ownerUid": {
-        ".read": "auth != null && (auth.uid === $ownerUid || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1')",
-        ".write": "auth != null && (auth.uid === $ownerUid || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1')",
+        ".read": "auth != null && (auth.uid === $ownerUid || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1' || (root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid && root.child('teams').child($ownerUid).child(auth.uid).child('active').val() === true && root.child('teams').child($ownerUid).child(auth.uid).child('role').val() !== 'cashier'))",
+        ".write": "auth != null && (auth.uid === $ownerUid || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1' || (root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid && root.child('teams').child($ownerUid).child(auth.uid).child('active').val() === true && root.child('teams').child($ownerUid).child(auth.uid).child('role').val() !== 'cashier' && root.child('teams').child($ownerUid).child(auth.uid).child('canWrite').val() === true))",
         "clientOps": {
           "$accountId": {
             ".read": "auth != null && (auth.uid === $ownerUid || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1' || (root.child('clientAccountMap').child(auth.uid).child('ownerUid').val() === $ownerUid && root.child('clientAccountMap').child(auth.uid).child('accountId').val() === $accountId))"
@@ -27,8 +27,29 @@
     },
     "sales": {
       "$ownerUid": {
-        ".read": "auth != null && (auth.uid === $ownerUid || root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1')",
-        ".write": "auth != null && (auth.uid === $ownerUid || root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid)"
+        ".read": "auth != null && (auth.uid === $ownerUid || (root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid && root.child('teams').child($ownerUid).child(auth.uid).child('active').val() !== false) || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1')",
+        ".write": "auth != null && (auth.uid === $ownerUid || (root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid && root.child('teams').child($ownerUid).child(auth.uid).child('active').val() !== false))"
+      }
+    },
+    "teams": {
+      "$ownerUid": {
+        ".read": "auth != null && auth.uid === $ownerUid",
+        ".write": "auth != null && auth.uid === $ownerUid",
+        "$memberUid": {
+          ".read": "auth != null && auth.uid === $memberUid"
+        }
+      }
+    },
+    "audit": {
+      "$ownerUid": {
+        ".read": "auth != null && (auth.uid === $ownerUid || auth.uid === 'yDNRRh5Ua5TcgPZMA8WJHhHbR3g1' || (root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid && root.child('teams').child($ownerUid).child(auth.uid).child('active').val() === true && (root.child('teams').child($ownerUid).child(auth.uid).child('perms/audit').val() === 'view' || root.child('teams').child($ownerUid).child(auth.uid).child('perms/audit').val() === 'edit')))",
+        ".indexOn": [
+          "at"
+        ],
+        "$entryId": {
+          ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid && (auth.uid === $ownerUid || root.child('employeeOwnerMap').child(auth.uid).val() === $ownerUid)",
+          ".validate": "newData.hasChildren(['uid', 'at', 'action', 'area']) && newData.child('at').val() <= now"
+        }
       }
     },
     "appUpdate": {

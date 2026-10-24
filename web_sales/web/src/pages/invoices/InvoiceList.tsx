@@ -89,8 +89,8 @@ const exportCsv = (rows: SalesInvoice[]) => {
 };
 
 const InvoiceList: React.FC = () => {
-  const { user, currency } = useApp();
-  const { invoices, loading } = useSalesInvoices(user?.uid || null);
+  const { ownerUid, currency } = useApp();
+  const { invoices, loading } = useSalesInvoices(ownerUid);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<InvoiceStatus | 'all'>('all');
   const [payment, setPayment] = useState<PaymentMethod | 'all'>('all');

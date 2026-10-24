@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNewParam } from '../hooks/useNewParam';
 import { useLedger } from '../context/LedgerContext';
 import { Badge, Button, Card, PageHeader, StatCard, Tabs } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
@@ -42,6 +43,7 @@ const Accounts: React.FC = () => {
   const [period, setPeriod] = useState<Period>(periodFromPreset('all'));
   const [newAccount, setNewAccount] = useState(false);
   const [newOp, setNewOp] = useState(false);
+  useNewParam((k) => (k === 'account' ? setNewAccount(true) : k === 'entry' && setNewOp(true)));
 
   const totals = useMemo(() => totalsOf(operations.filter((o) => inPeriod(o.date, period))), [operations, period]);
 

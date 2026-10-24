@@ -74,3 +74,37 @@ self.addEventListener('fetch', (event) => {
     )
   );
 });
+
+/* ───────── إشعارات التنبيهات (خدمة السحابة alerts/) ───────── */
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: 'منصتي المحاسبية', body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'منصتي المحاسبية', {
+      body: data.body || '',
+      dir: 'rtl',
+      lang: 'ar',
+      tag: data.tag || 'alerts',
+      icon: BASE + 'icon-192.png',
+      badge: BASE + 'icon-192.png',
+      data: { url: BASE + String(data.link || 'alerts').replace(/^\//, '') },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || BASE;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => c.url.startsWith(self.location.origin + ROOT));
+      if (open) return open.focus().then((c) => c && c.navigate && c.navigate(url));
+      return self.clients.openWindow(url);
+    })
+  );
+});

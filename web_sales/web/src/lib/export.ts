@@ -1,6 +1,7 @@
-// تصدير التقارير: Excel (CSV بترميز UTF-8 يفتحه Excel بالعربية) و PDF (طباعة منسّقة → حفظ كـ PDF).
+// تصدير التقارير: PDF (طباعة منسّقة ← حفظ كـ PDF). ملفات Excel الحقيقية (.xlsx) في lib/excel.ts.
 
 import { CompanyInfo } from './ledger';
+import { CalendarMode, formatOfficialDate } from './localization';
 
 export interface ReportTable {
   title: string;
@@ -15,7 +16,25 @@ export interface ReportTable {
   summary?: Array<[string, string]>;
   /** أقسام إضافية (لتقارير متعددة الجداول مثل دفتر الأستاذ) */
   sections?: Array<{ heading: string; rows: Array<Array<string | number>>; footer?: Array<Array<string | number>> }>;
+  /** المبلغ كتابةً (الفواتير والسندات) */
+  amountWords?: string;
+  /** تاريخ المستند (yyyy-mm-dd) — يُطبع بالتقويم المختار في إعداد المنشأة */
+  docDate?: string;
 }
+
+/** بيانات الترويسة الرسمية من إعداد المنشأة والضرائب */
+export interface PrintProfile {
+  calendar: CalendarMode;
+  crLabel?: string;
+  crNumber?: string;
+  taxLabel?: string;
+  taxNumber?: string;
+}
+
+let printProfile: PrintProfile = { calendar: 'gregorian' };
+export const setPrintProfile = (p: PrintProfile) => {
+  printProfile = p;
+};
 
 const fmtCell = (v: string | number) => (typeof v === 'number' ? v.toFixed(2) : v ?? '');
 
@@ -31,6 +50,9 @@ const download = (blob: Blob, filename: string) => {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+
+/** تنزيل نص كملف (ملفات الفوترة الإلكترونية XML/JSON) */
+export const downloadFile = (name: string, content: string, type: string) => download(new Blob([content], { type: `${type};charset=utf-8` }), name);
 
 export const exportCsv = (t: ReportTable) => {
   const esc = (v: string | number) => {
@@ -90,7 +112,12 @@ const tableHtml = (t: ReportTable, rows: Array<Array<string | number>>, footer?:
  */
 export const printReport = (t: ReportTable, company?: CompanyInfo) => {
   const now = new Date();
-  const printed = new Intl.DateTimeFormat('ar-u-nu-latn-ca-gregory', { dateStyle: 'long', timeStyle: 'short' }).format(now);
+  const time = new Intl.DateTimeFormat('ar-u-nu-latn-ca-gregory', { timeStyle: 'short' }).format(now);
+  const printed = `${formatOfficialDate(now, printProfile.calendar)} ${time}`;
+  const legal = [
+    printProfile.crNumber ? `${printProfile.crLabel || 'السجل التجاري'}: ${printProfile.crNumber}` : '',
+    printProfile.taxNumber ? `${printProfile.taxLabel || 'الرقم الضريبي'}: ${printProfile.taxNumber}` : '',
+  ].filter(Boolean);
   const coName = company?.name || 'المنصة المحاسبية';
   const initial = coName.trim().charAt(0);
   const rowCount = t.sections?.length ? t.sections.reduce((s, x) => s + x.rows.length, 0) : t.rows.length;
@@ -141,17 +168,21 @@ tbody tr:nth-child(even) td{background:#f7f9fc}
 tfoot td{background:#eef4ff;font-weight:700;border-top:2px solid #2349ea;color:#1e2f80}
 .empty{text-align:center;color:#94a3b8;padding:18px}
 footer{margin-top:18px;display:flex;justify-content:space-between;align-items:center;color:#94a3b8;font-size:8.5px;border-top:1px solid #e5e9f0;padding-top:6px}
+.words{margin-top:12px;border:1px solid #d3d9e3;border-radius:8px;padding:8px 12px;background:#f8fafc}
+.words span{display:block;color:#64748b;font-size:9px}
+.words b{font-size:11.5px;color:#1e2f80}
 .sign{display:flex;gap:40px;margin-top:28px;color:#475569;font-size:9.5px}
 .sign div{flex:1;border-top:1px dashed #cbd5e1;padding-top:4px;text-align:center}
 </style></head><body>
 <div class="band"></div>
 <header>
-  <div class="co"><div class="logo">${escapeHtml(initial)}</div><div><b>${escapeHtml(coName)}</b>${contact.length ? `<small>${contact.join(' · ')}</small>` : ''}</div></div>
+  <div class="co"><div class="logo">${escapeHtml(initial)}</div><div><b>${escapeHtml(coName)}</b>${contact.length ? `<small>${contact.join(' · ')}</small>` : ''}${legal.length ? `<small>${legal.map(escapeHtml).join(' · ')}</small>` : ''}</div></div>
   <div class="doc"><p class="title">${escapeHtml(t.title)}</p>${t.subtitle ? `<div class="sub">${escapeHtml(t.subtitle)}</div>` : ''}</div>
 </header>
-<div class="meta"><span>تاريخ الإصدار: ${printed}</span><span>عدد الأسطر: ${rowCount}</span></div>
+<div class="meta">${t.docDate ? `<span>تاريخ المستند: ${formatOfficialDate(t.docDate, printProfile.calendar)}</span>` : ''}<span>تاريخ الإصدار: ${printed}</span><span>عدد الأسطر: ${rowCount}</span></div>
 ${t.summary?.length ? `<div class="sum">${t.summary.map(([k, v]) => `<div class="card"><span>${escapeHtml(k)}</span><b>${escapeHtml(v)}</b></div>`).join('')}</div>` : ''}
 ${body}
+${t.amountWords ? `<div class="words"><span>المبلغ كتابةً</span><b>${escapeHtml(t.amountWords)}</b></div>` : ''}
 <div class="sign"><div>إعداد</div><div>مراجعة</div><div>اعتماد</div></div>
 <footer><span>${escapeHtml(coName)} — ${escapeHtml(t.title)}</span><span>صادر من المنصة المحاسبية</span></footer>
 </body></html>`;

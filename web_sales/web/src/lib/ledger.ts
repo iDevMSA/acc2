@@ -237,6 +237,13 @@ export interface Period {
 
 const ymd = (d: Date) => localIso(d).slice(0, 10);
 
+// شهر بداية السنة المالية (1..12) — يضبطه إعداد المنشأة (erp/profile) عند التحميل
+let fiscalStartMonth = 1;
+export const setFiscalStartMonth = (m: number) => {
+  fiscalStartMonth = Number.isInteger(m) && m >= 1 && m <= 12 ? m : 1;
+};
+export const getFiscalStartMonth = () => fiscalStartMonth;
+
 export const PERIOD_LABELS: Record<PeriodPreset, string> = {
   all: 'كل الفترات',
   today: 'اليوم',
@@ -244,7 +251,7 @@ export const PERIOD_LABELS: Record<PeriodPreset, string> = {
   month: 'هذا الشهر',
   lastMonth: 'الشهر الماضي',
   quarter: 'آخر 3 أشهر',
-  year: 'هذه السنة',
+  year: 'السنة المالية الحالية',
   custom: 'فترة مخصصة',
 };
 
@@ -266,8 +273,10 @@ export const periodFromPreset = (preset: PeriodPreset, current?: Period): Period
       return { preset, from: ymd(new Date(y, m - 1, 1)), to: ymd(new Date(y, m, 0)) };
     case 'quarter':
       return { preset, from: ymd(new Date(y, m - 2, 1)), to: ymd(now) };
-    case 'year':
-      return { preset, from: ymd(new Date(y, 0, 1)), to: ymd(now) };
+    case 'year': {
+      const s = fiscalStartMonth - 1;
+      return { preset, from: ymd(new Date(m >= s ? y : y - 1, s, 1)), to: ymd(now) };
+    }
     case 'custom':
       return { preset, from: current?.from || ymd(new Date(y, 0, 1)), to: current?.to || ymd(now) };
     default:

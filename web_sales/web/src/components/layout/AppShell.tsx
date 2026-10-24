@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 import BottomNav from './BottomNav';
 import { OfflineBanner, UpdateToast } from '../pwa/StatusBanners';
@@ -7,7 +7,12 @@ import Icon from '../ui/Icon';
 import { useLedger } from '../../context/LedgerContext';
 import { NAV_GROUPS, findNavItem } from './navigation';
 import { formatDate } from '../../lib/format';
-import CommandPalette, { useCommandPalette } from './CommandPalette';
+import CommandPalette from './CommandPalette';
+import AlertsBell from './AlertsBell';
+import ShortcutsHelp from './ShortcutsHelp';
+import Kbd from '../ui/Kbd';
+import { useShortcutFor, useShortcutListener } from '../../context/ShortcutsContext';
+import { NAV_TARGETS, NEW_TARGETS } from '../../lib/shortcuts';
 
 const COLLAPSE_KEY = 'erp.sidebarCollapsed';
 
@@ -19,8 +24,20 @@ const readCollapsed = () => {
   }
 };
 
+/** Ctrl+S: يضغط زر الحفظ في النافذة المفتوحة، أو يرسل النموذج الذي فيه المؤشر */
+const submitOpenForm = () => {
+  const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"]');
+  const dialog = dialogs[dialogs.length - 1];
+  const form = (document.activeElement as HTMLElement | null)?.closest('form');
+  const scope = dialog || form || document.querySelector('main');
+  const btn = scope?.querySelector<HTMLButtonElement>('button[type="submit"]:not([disabled])');
+  if (btn) btn.click();
+  else if (form && (!dialog || dialog.contains(form))) form.requestSubmit();
+};
+
 const Topbar: React.FC<{ onMenu: () => void; onSearch: () => void }> = ({ onMenu, onSearch }) => {
   const { pathname } = useLocation();
+  const searchCombo = useShortcutFor('palette');
   // العملة الرئيسية المختارة في الإعدادات (وليست عملة نقاط البيع)
   const { mainCurrency: currency, company: companyInfo } = useLedger();
   const item = findNavItem(pathname);
@@ -52,14 +69,15 @@ const Topbar: React.FC<{ onMenu: () => void; onSearch: () => void }> = ({ onMenu
       </nav>
 
       <div className="flex items-center gap-2">
+        <AlertsBell />
         <button
           onClick={onSearch}
-          title="بحث شامل (Ctrl+K)"
+          title={searchCombo ? `بحث شامل (${searchCombo})` : 'بحث شامل'}
           className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs text-ink-muted hover:bg-slate-50"
         >
           <Icon name="search" size={14} />
           <span className="hidden sm:inline">بحث</span>
-          <kbd className="hidden rounded border border-line px-1 text-[10px] lg:inline">Ctrl K</kbd>
+          {searchCombo && <Kbd combo={searchCombo} size="sm" className="hidden lg:inline-flex" />}
         </button>
         <span className="hidden items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs text-ink-muted md:inline-flex">
           <Icon name="calendar" size={14} />
@@ -78,7 +96,9 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
-  const palette = useCommandPalette();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const navigate = useNavigate();
 
   // إغلاق الدرج عند الانتقال لصفحة أخرى
   useEffect(() => setMobileOpen(false), [pathname]);
@@ -93,6 +113,17 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       return !c;
     });
 
+  useShortcutListener((id) => {
+    const to = NAV_TARGETS[id] || NEW_TARGETS[id] || (id === 'shortcutsSettings' ? '/settings/shortcuts' : null);
+    if (id !== 'palette') setPaletteOpen(false);
+    if (id !== 'help') setHelpOpen(false);
+    if (to) navigate(to);
+    else if (id === 'palette') setPaletteOpen((o) => !o);
+    else if (id === 'help') setHelpOpen((o) => !o);
+    else if (id === 'toggleSidebar') toggle();
+    else if (id === 'save') submitOpenForm();
+  });
+
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-canvas">
       <Sidebar
@@ -102,7 +133,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         onMobileClose={() => setMobileOpen(false)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onMenu={() => setMobileOpen(true)} onSearch={() => palette.setOpen(true)} />
+        <Topbar onMenu={() => setMobileOpen(true)} onSearch={() => setPaletteOpen(true)} />
         <OfflineBanner />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1400px] px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 md:pb-7 lg:px-8 lg:pt-7">
@@ -111,7 +142,8 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </main>
         <BottomNav />
         <UpdateToast />
-        <CommandPalette open={palette.open} onClose={() => palette.setOpen(false)} />
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       </div>
     </div>
   );
