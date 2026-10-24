@@ -1,0 +1,198 @@
+<title>محاكي منصتي</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: screen index on the right (RTL), the live phone centered beside it, caption under the phone. */
+:root{
+  --bg:#EEF1F7; --panel:#FFFFFF; --ink:#101A33; --mu:#5E6B85; --line:#DDE3EE; --accent:#0A4FD6; --accent-soft:#E6EEFF;
+  --font:'IBM Plex Sans Arabic',Tahoma,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0C1222;--panel:#141C30;--ink:#E4E9F4;--mu:#93A0BA;--line:#24304A;--accent:#6EA2FF;--accent-soft:#1A2850;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0C1222;--panel:#141C30;--ink:#E4E9F4;--mu:#93A0BA;--line:#24304A;--accent:#6EA2FF;--accent-soft:#1A2850;color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);direction:rtl;margin:0}
+.sim{display:flex;flex-direction:column;min-height:100%;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;gap:14px;box-sizing:border-box}
+.sim-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sim-head h1{font-size:20px;font-weight:700;margin:0;text-wrap:balance}
+.sim-head p{margin:2px 0 0;font-size:13px;color:var(--mu)}
+.sim-ctrl{display:flex;gap:8px;flex-wrap:wrap}
+.sim-btn{font:600 13px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.sim-btn:hover{border-color:var(--accent)}
+.sim-btn:focus-visible,.sim-item:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sim-btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.sim-main{display:grid;grid-template-columns:270px minmax(0,1fr);gap:20px;flex:1;min-height:0}
+.sim-aside{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;overflow:auto;max-height:calc(100vh - 110px);position:sticky;top:16px}
+.sim-grp{margin-bottom:10px}
+.sim-grp h2{font-size:11.5px;font-weight:700;color:var(--mu);margin:6px 8px 4px;letter-spacing:.2px}
+.sim-item{display:block;width:100%;text-align:right;font:500 13.5px var(--font);color:var(--ink);background:none;border:0;border-radius:9px;padding:7px 10px;cursor:pointer}
+.sim-item:hover{background:var(--bg)}
+.sim-item[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.sim-pick{display:none;font:500 14px var(--font);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%}
+.sim-stage{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:0}
+.sim-fit{position:relative}
+.sim-fit>.sim-scale{position:absolute;top:0;right:0;transform-origin:top right}
+.sim-cap{text-align:center;max-width:420px}
+.sim-cap b{font-size:16px;display:block}
+.sim-cap span{font-size:13px;color:var(--mu);line-height:1.6}
+.sim-hint{font-size:12px;color:var(--mu);text-align:center}
+@media (max-width:820px){.sim-main{grid-template-columns:1fr}.sim-aside{display:none}.sim-pick{display:block}}
+
+/*PHONE_CSS*/
+.phone{font-family:var(--font);color:#0F172A;direction:rtl}
+.phone .hot{cursor:pointer}
+.sim .phone .body{overflow-y:auto;scrollbar-width:none}
+.sim .phone .body::-webkit-scrollbar{display:none}
+.sim .phone .body>*{flex-shrink:0}
+.sim .phone .body>*:last-child{margin-bottom:12px}
+.sim.show-hot .phone .hot{outline:2px dashed rgba(10,79,214,.7);outline-offset:1px;border-radius:12px}
+@keyframes simIn{from{opacity:.4;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.sim-screen:not([hidden]) .scr{animation:simIn .18s ease-out}
+@media (prefers-reduced-motion:reduce){.sim-screen .scr{animation:none!important}}
+</style>
+
+<div class="sim" id="sim">
+  <header class="sim-head">
+    <div><h1>محاكي تطبيق منصتي المحاسبية</h1><p>التصور النهائي لكل الشاشات. كل ما في التطبيق الحالي باقٍ كما هو، والجديد إضافة فقط. اضغط داخل الهاتف للتنقل.</p></div>
+    <div class="sim-ctrl">
+      <button class="sim-btn" id="bBack" type="button">رجوع</button>
+      <button class="sim-btn" id="bHome" type="button">الرئيسية</button>
+      <button class="sim-btn" id="bHot" type="button" aria-pressed="false">إظهار أماكن الضغط</button>
+    </div>
+  </header>
+  <div class="sim-main">
+    <nav class="sim-aside" id="aside" aria-label="الشاشات"></nav>
+    <div class="sim-stage">
+      <select class="sim-pick" id="pick" aria-label="اختر شاشة"></select>
+      <div class="sim-fit" id="fit"><div class="sim-scale" id="scale">
+<!--SCREENS-->
+      </div></div>
+      <div class="sim-cap" id="cap"></div>
+      <div class="sim-hint">ابدأ من شاشة الدخول: «حساب جديد» يفتح معالج التسجيل، و«دخول» يفتح الرئيسية.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GROUPS = /*GROUPS*/;
+const META = {}; GROUPS.forEach(g => g.items.forEach(i => META[i.id] = i));
+const $ = s => document.querySelector(s);
+const screens = {}; document.querySelectorAll('.sim-screen').forEach(s => screens[s.dataset.id] = s);
+let cur = null; const hist = [];
+
+// Navigation rules: [text the tapped element contains, target]. Screen rules win over global ones.
+const R = {
+  '*': [['nav:الرئيسية', 'home'], ['nav:الحسابات', 'accounts'], ['nav:التقارير', 'reports'], ['nav:الإعدادات', 'settings']],
+  login: [['حساب جديد', 'ob1'], ['Google', 'home'], ['بالبصمة', 'home'], ['btn:دخول', 'home']],
+  setup: [['btn:التالي', 'home']],
+  ob1: [['btn:التالي', 'ob2']], ob2: [['btn:التالي', 'ob3']], ob3: [['ابدأ', 'company'], ['تخطَّ', 'company']],
+  company: [['حفظ ومتابعة', 'home'], ['أكمل لاحقاً', 'home']],
+  batch: [['حفظ الكل', 'home']],
+  ai: [['كشف الحساب', 'statement'], ['إرسال مطابقة', 'recon'], ['تأكيد', 'customer']],
+  smart: [['تصلك حتى', 'lock']],
+  lock: [['لم تسجّل', 'entry'], ['قيد مكرر', 'customer'], ['أكّد المطابقة', 'recon'], ['إقرار الضريبة', 'vat']],
+  autowa: [['السجل', 'audit'], ['حسابات مستثناة', 'accounts']],
+  home: [['قيد جديد', 'entry'], ['سند قبض', 'entry'], ['سند صرف', 'entry'], ['مسح', 'pos'], ['tile:فاتورة', 'pos'], ['تنبيهات', 'alerts'], ['ibtn:bell', 'alerts'], ['التقارير', 'reports'], ['عرض الكل', 'customer'], ['فاتورة مبيعات', 'invoice'], ['صافي الربح', 'income'], ['chip:SAR', 'settings']],
+  tools: [['دليل الحسابات', 'accounts'], ['القيود', 'journal'], ['الصناديق', 'cash'], ['العملات', 'settings'], ['نقطة البيع', 'pos'], ['الفواتير', 'invoice'], ['الأصناف', 'products'], ['المستودعات', 'products'], ['الفوترة الإلكترونية', 'einv'], ['إقرار الضريبة', 'vat'], ['ضريبة المشتريات', 'purchase'], ['الدولة والقطاع', 'setup'], ['التقارير', 'reports'], ['الفريق', 'team'], ['سجل التدقيق', 'audit'], ['التنبيهات', 'alerts'], ['استيراد', 'import'], ['تصدير', 'export'], ['الاشتراك', 'sub'], ['الموازنة', 'budget'], ['المساعد الذكي', 'ai']],
+  accounts: [['li:العملاء', 'customer'], ['li:', 'statement']],
+  customer: [['قيد لنا', 'entry'], ['قيد لهم', 'entry'], ['كشف الحساب', 'statement'], ['مطابقة واتساب', 'recon']],
+  entry: [['حفظ', 'customer'], ['رسالة واتساب', 'autowa']],
+  journal: [['حفظ', 'accounts']],
+  statement: [['واتساب', 'recon'], ['PDF', 'export'], ['Excel', 'export'], ['ibtn:share', 'export']],
+  pos: [['الدفع', 'checkout']], checkout: [['إتمام', 'invoice']],
+  einv: [['ibtn:gear', 'taxset'], ['إصلاح', 'invoice']],
+  vat: [['الفواتير المؤثرة', 'einv'], ['تصدير', 'export']],
+  purchase: [['حفظ', 'accounts']],
+  reports: [['قائمة الدخل', 'income'], ['ميزان', 'export'], ['تقرير الضريبة', 'vat'], ['المدينون', 'customer'], ['الدائنون', 'statement'], ['li:', 'income']],
+  income: [['ibtn:share', 'export']],
+  alerts: [['فتح الإقرار', 'vat'], ['عرض الأصناف', 'products'], ['تذكير العملاء', 'recon'], ['ibtn:gear', 'smart']],
+  settings: [['بيانات المنشأة', 'company'], ['الإشعارات الذكية', 'smart'], ['رسائل واتساب', 'autowa'], ['الدولة والقطاع', 'setup'], ['الضرائب', 'taxset'], ['كل الأدوات', 'tools'], ['التنبيهات', 'alerts'], ['أدواتي', 'mytools'], ['الوضع الليلي', 'dark'], ['المزامنة', 'offline'], ['li:الاشتراك', 'sub'], ['card:هاتف + ويب', 'sub']],
+  quick: [['قيود متعددة', 'batch'], ['المساعد الذكي', 'ai'], ['فاتورة بيع', 'pos'], ['فاتورة شراء', 'purchase'], ['نقطة البيع', 'pos'], ['سند قبض', 'entry'], ['سند صرف', 'entry'], ['تحويل نقدية', 'cash'], ['مسح باركود', 'pos'], ['عميل جديد', 'customer'], ['صنف جديد', 'products'], ['تصوير فاتورة', 'purchase'], ['تقرير سريع', 'reports'], ['تخصيص', 'mytools'], ['bg:', 'back'], ['fab:', 'back']],
+  export: [['bg:', 'back'], ['btn:', 'back']],
+  mytools: [['أعد الأسئلة', 'ob1']],
+  ob3x: [],
+};
+const KINDS = { nav: '.it', btn: '.btn', tile: '.tile', li: '.li', ibtn: '.ibtn', chip: '.chip', card: '.card', bg: '.sheet-bg', fab: '.fab' };
+const ICON = { bell: 'M6 8a6', gear: 'M19.4 15', share: 'm8.2 10.8', layers: 'm12 3 9 5' };
+const CAND = '.it,.fab,.tile,.li,.btn,.chip,.ibtn,.card,.inp,.sheet-bg,.nt,span';
+
+function match(el, rule) {
+  let [pat, go] = rule, kind = null, text = pat;
+  const k = pat.indexOf(':');
+  if (k > 0 && KINDS[pat.slice(0, k)]) { kind = pat.slice(0, k); text = pat.slice(k + 1); }
+  if (kind && !el.matches(KINDS[kind])) return false;
+  if (!kind && el.matches('.card,.sheet-bg')) return false;
+  if (kind === 'ibtn' && ICON[text]) return el.innerHTML.includes(ICON[text]);
+  return text === '' || el.textContent.includes(text);
+}
+function targetFor(el, id) {
+  if (el.matches('.ibtn.bk')) return 'back';
+  if (el.matches('.fab') && id !== 'quick') return 'quick';
+  for (const r of (R[id] || []).concat(R['*'])) if (match(el, r)) return r[1];
+  return null;
+}
+function markHot(id) {
+  const s = screens[id];
+  s.querySelectorAll(CAND).forEach(el => {
+    const t = targetFor(el, id);
+    // Mark only the innermost-but-meaningful element: skip if an ancestor already resolves to the same target.
+    el.classList.toggle('hot', !!t && !(el.parentElement && el.parentElement.closest('.hot') && targetFor(el.parentElement.closest('.hot'), id) === t));
+  });
+}
+function show(id, push = true) {
+  if (!screens[id]) return;
+  if (cur && push) hist.push(cur);
+  if (cur) screens[cur].hidden = true;
+  cur = id; screens[id].hidden = false; markHot(id);
+  const m = META[id];
+  $('#cap').innerHTML = `<b>${m.cap}</b><span>${m.note}</span>`;
+  document.querySelectorAll('.sim-item').forEach(b => b.setAttribute('aria-current', b.dataset.id === id));
+  $('#pick').value = id;
+  try { localStorage.setItem('sim-screen', id); } catch (e) {}
+}
+function back() { if (hist.length) show(hist.pop(), false); }
+
+screensRoot = $('#scale');
+screensRoot.addEventListener('click', e => {
+  let el = e.target;
+  while (el && el !== screensRoot) {
+    if (el.matches && el.matches(CAND)) {
+      const t = targetFor(el, cur);
+      if (t) { e.preventDefault(); t === 'back' ? back() : show(t); return; }
+    }
+    el = el.parentElement;
+  }
+});
+
+// Index of screens.
+const aside = $('#aside'), pick = $('#pick');
+GROUPS.forEach(g => {
+  const d = document.createElement('div'); d.className = 'sim-grp';
+  d.innerHTML = `<h2>${g.title}</h2>` + g.items.map(i => `<button class="sim-item" type="button" data-id="${i.id}">${i.cap}</button>`).join('');
+  aside.appendChild(d);
+  const og = document.createElement('optgroup'); og.label = g.title;
+  g.items.forEach(i => og.appendChild(new Option(i.cap, i.id)));
+  pick.appendChild(og);
+});
+aside.addEventListener('click', e => { const b = e.target.closest('.sim-item'); if (b) show(b.dataset.id); });
+pick.addEventListener('change', () => show(pick.value));
+$('#bBack').onclick = back;
+$('#bHome').onclick = () => show('home');
+$('#bHot').onclick = function () { const on = this.getAttribute('aria-pressed') !== 'true'; this.setAttribute('aria-pressed', on); $('#sim').classList.toggle('show-hot', on); };
+
+// Fit the 372×790 phone into the space available.
+function fit() {
+  const W = 372, H = 790, stage = document.querySelector('.sim-stage');
+  const availW = Math.max(240, stage.clientWidth), availH = Math.max(420, window.innerHeight - 190);
+  const s = Math.min(1, availW / W, availH / H);
+  $('#scale').style.transform = `scale(${s})`;
+  $('#fit').style.width = W * s + 'px'; $('#fit').style.height = H * s + 'px';
+}
+window.addEventListener('resize', fit); fit();
+
+let start = 'home';
+try { const saved = localStorage.getItem('sim-screen'); if (saved && screens[saved]) start = saved; } catch (e) {}
+const h = location.hash.slice(1); if (screens[h]) start = h;
+show(start, false);
+</script>
