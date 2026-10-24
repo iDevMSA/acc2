@@ -43,6 +43,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'الموازنة والمشتريات',
+    items: [
+      { path: '/budget', label: 'الموازنة', icon: 'pie', description: 'الاعتمادات حسب أبواب الموازنة والمناقلات وتقرير التنفيذ' },
+      { path: '/commitments', label: 'المشتريات والارتباطات', icon: 'truck', description: 'طلبات الشراء ومستويات الاعتماد والارتباط وأوامر الشراء والصرف' },
+    ],
+  },
+  {
     label: 'النقدية',
     items: [
       { path: '/cashboxes', label: 'الصناديق', icon: 'wallet', description: 'الصناديق وربطها بالحسابات', mobile: true },

@@ -8,7 +8,7 @@
 // التفصيل لكل قسم يُطبَّق في الواجهة: القوائم والصفحات، وعند كل حفظ في LedgerContext و PosContext.
 
 export type TeamRole = 'accountant' | 'branchManager' | 'cashier' | 'viewer';
-export type Area = 'accounts' | 'cash' | 'trade' | 'stock' | 'pos' | 'reports' | 'taxes' | 'payroll' | 'settings' | 'audit';
+export type Area = 'accounts' | 'cash' | 'trade' | 'stock' | 'pos' | 'reports' | 'taxes' | 'payroll' | 'budget' | 'settings' | 'audit';
 export type Level = 'none' | 'view' | 'edit';
 export type Perms = Record<Area, Level>;
 
@@ -38,6 +38,7 @@ export const AREAS: { id: Area; label: string; hint: string; viewOnly?: boolean 
   { id: 'reports', label: 'التقارير والرسوم البيانية', hint: 'كل التقارير المالية والمخزنية', viewOnly: true },
   { id: 'taxes', label: 'الضرائب والفوترة الإلكترونية', hint: 'الإقرار الضريبي وإعدادات الضريبة' },
   { id: 'payroll', label: 'الرواتب', hint: 'مسيرات الرواتب' },
+  { id: 'budget', label: 'الموازنة والمشتريات', hint: 'الاعتمادات والمناقلات، طلبات الشراء واعتمادها، الارتباط وأوامر الشراء والصرف' },
   { id: 'settings', label: 'الإعدادات', hint: 'معلومات الشركة، العملة، أسعار الصرف، التنبيهات' },
   { id: 'audit', label: 'سجل التعديلات', hint: 'من غيّر ماذا ومتى', viewOnly: true },
 ];
@@ -51,6 +52,7 @@ const P = (o: Partial<Perms>): Perms => ({
   reports: 'none',
   taxes: 'none',
   payroll: 'none',
+  budget: 'none',
   settings: 'none',
   audit: 'none',
   ...o,
@@ -61,7 +63,7 @@ export const ROLES: Record<TeamRole, { label: string; description: string; perms
     label: 'محاسب',
     description: 'القيود والسندات والفواتير والضرائب والرواتب، ويرى التقارير وسجل التعديلات',
     pos: false,
-    perms: P({ accounts: 'edit', cash: 'edit', trade: 'edit', stock: 'view', pos: 'view', reports: 'view', taxes: 'edit', payroll: 'edit', audit: 'view' }),
+    perms: P({ accounts: 'edit', cash: 'edit', trade: 'edit', stock: 'view', pos: 'view', reports: 'view', taxes: 'edit', payroll: 'edit', budget: 'edit', audit: 'view' }),
   },
   branchManager: {
     label: 'مدير فرع',
@@ -79,7 +81,7 @@ export const ROLES: Record<TeamRole, { label: string; description: string; perms
     label: 'مدقق (عرض فقط)',
     description: 'يرى كل شيء ولا يعدّل: مناسب للمراجع أو المدقق الخارجي',
     pos: false,
-    perms: P({ accounts: 'view', cash: 'view', trade: 'view', stock: 'view', pos: 'view', reports: 'view', taxes: 'view', payroll: 'view', settings: 'view', audit: 'view' }),
+    perms: P({ accounts: 'view', cash: 'view', trade: 'view', stock: 'view', pos: 'view', reports: 'view', taxes: 'view', payroll: 'view', budget: 'view', settings: 'view', audit: 'view' }),
   },
 };
 
@@ -133,6 +135,7 @@ const PATH_AREAS: [RegExp, Area | 'owner' | 'any'][] = [
   [/^\/(reports|charts)/, 'reports'],
   [/^\/taxes/, 'taxes'],
   [/^\/payroll/, 'payroll'],
+  [/^\/(budget|commitments)/, 'budget'],
 ];
 
 export const areaOfRoute = (pathname: string): Area | 'owner' | 'any' => PATH_AREAS.find(([re]) => re.test(pathname))?.[1] ?? 'any';
@@ -153,13 +156,14 @@ const areaOfWritePath = (p: string): Area => {
   if (/^erp\/(vouchers|cheques|cashboxes)\//.test(p) || p.startsWith('cashboxes')) return 'cash';
   if (/^erp\/(stockMoves|items|warehouses)\//.test(p)) return 'stock';
   if (p.startsWith('erp/payrolls')) return 'payroll';
-  if (/^erp\/(settings|rates|budgets|profile)/.test(p) || p.startsWith('companyInfo') || p.startsWith('alerts/settings') || p.startsWith('team/')) return 'settings';
+  if (/^erp\/(budgets|budgetTransfers|commitments|approvalLevels)/.test(p)) return 'budget';
+  if (/^erp\/(settings|rates|profile)/.test(p) || p.startsWith('companyInfo') || p.startsWith('alerts/settings') || p.startsWith('team/')) return 'settings';
   if (p.startsWith('einvoice')) return 'taxes';
   return 'accounts';
 };
 
 // فاتورة واحدة تكتب الفاتورة والقيود وحركات المخزون معاً: القسم "الأعلى" هو صاحب العملية
-const AREA_PRIORITY: Area[] = ['trade', 'payroll', 'cash', 'stock', 'pos', 'taxes', 'settings', 'accounts'];
+const AREA_PRIORITY: Area[] = ['budget', 'trade', 'payroll', 'cash', 'stock', 'pos', 'taxes', 'settings', 'accounts'];
 
 export const areaOfWrite = (paths: string[]): Area => {
   const set = new Set(paths.map(areaOfWritePath));
