@@ -11,6 +11,8 @@ import { ExportButtons, PeriodPicker } from '../components/ledger/ReportToolbar'
 import { formatDate, formatNumber } from '../lib/format';
 import { Period, ROLE_LABELS, inPeriod, periodFromPreset, periodText } from '../lib/ledger';
 import { Voucher, VoucherType, VOUCHER_LABELS } from '../lib/erp';
+import { printReport } from '../lib/export';
+import { amountInWords } from '../lib/localization';
 
 type TypeFilter = 'all' | VoucherType;
 type PartyFilter = 'all' | 'customer' | 'supplier' | 'employee' | 'general';
@@ -19,7 +21,7 @@ const Vouchers: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const typeFilter = (params.get('type') as TypeFilter) || 'all';
   const partyFilter = (params.get('party') as PartyFilter) || 'all';
-  const { vouchers, cashboxes, accountsById, roleOf, deleteVoucher, mainCurrency } = useLedger();
+  const { vouchers, cashboxes, accountsById, roleOf, deleteVoucher, mainCurrency, company } = useLedger();
   const [period, setPeriod] = useState<Period>(periodFromPreset('month'));
   const [modal, setModal] = useState<{ open: boolean; type: VoucherType }>({ open: false, type: 'receipt' });
   const [confirm, setConfirm] = useState<Voucher | null>(null);
@@ -46,6 +48,27 @@ const Vouchers: React.FC = () => {
   const main = (v: Voucher) => v.amount / (v.exchangeRate || 1);
   const sum = (t: VoucherType) => rows.filter((v) => v.type === t).reduce((s, v) => s + main(v), 0);
   const boxName = (id?: string | null) => cashboxes.find((b) => b.id === id)?.name || '—';
+
+  // سند رسمي: الترويسة والتاريخ (هجري إن اختير) والمبلغ كتابةً وخانات التوقيع
+  const printVoucher = (v: Voucher) => {
+    const party = v.type === 'transfer' ? boxName(v.toBoxId) : v.partyId ? accountsById[v.partyId]?.name || v.partyId : '—';
+    printReport(
+      {
+        title: `${VOUCHER_LABELS[v.type]} رقم ${v.number}`,
+        docDate: v.date,
+        summary: [
+          [v.type === 'receipt' ? 'استلمنا من' : v.type === 'payment' ? 'صرفنا إلى' : 'إلى صندوق', String(party)],
+          ['المبلغ', `${formatNumber(v.amount)} ${v.currency}`],
+          ['الصندوق', String(boxName(v.boxId))],
+        ],
+        columns: ['البيان', 'العملة', 'سعر الصرف', 'المبلغ'],
+        numericColumns: [2, 3],
+        rows: [[v.statement || VOUCHER_LABELS[v.type], v.currency, v.exchangeRate, v.amount]],
+        amountWords: amountInWords(v.amount, v.currency),
+      },
+      company,
+    );
+  };
 
   const columns: Array<Column<Voucher>> = [
     {
@@ -84,6 +107,20 @@ const Vouchers: React.FC = () => {
         <>
           {formatNumber(v.amount)} <span className="text-xs text-ink-subtle">{v.currency}</span>
         </>
+      ),
+    },
+    {
+      key: 'print',
+      header: '',
+      className: 'w-12',
+      render: (v) => (
+        <button
+          onClick={() => printVoucher(v)}
+          title="طباعة السند"
+          className="grid h-8 w-8 place-items-center rounded-md text-ink-subtle hover:bg-slate-100 hover:text-ink"
+        >
+          <Icon name="receipt" size={15} />
+        </button>
       ),
     },
     {

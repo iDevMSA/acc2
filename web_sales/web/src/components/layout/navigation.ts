@@ -24,6 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/hub', label: 'الأقسام', icon: 'grid', description: 'كل النوافذ والأدوات مرتبة حسب القسم' },
       { path: '/import', label: 'استيراد من Excel', icon: 'arrowIn', description: 'إضافة الزبائن والموردين والأصناف ومنتجات نقطة البيع من ملف Excel' },
       { path: '/alerts', label: 'التنبيهات', icon: 'bell', description: 'مخزون منخفض وفواتير مستحقة وديون متأخرة، وإرسالها للهاتف والبريد' },
+      { path: '/setup', label: 'إعداد المنشأة', icon: 'building', description: 'الدولة والقطاع والنشاط، السنة المالية، التقويم الهجري، ودليل الحسابات الجاهز' },
       { path: '/settings', label: 'الإعدادات', icon: 'settings', description: 'معلومات الشركة والعملة والمزامنة' },
       { path: '/team', label: 'الفريق والصلاحيات', icon: 'lock', description: 'حسابات المحاسب ومدير الفرع والكاشير والمدقق وصلاحياتهم' },
       { path: '/audit', label: 'سجل التعديلات', icon: 'history', description: 'من غيّر ماذا ومتى، مع القيمة قبل التعديل وبعده' },

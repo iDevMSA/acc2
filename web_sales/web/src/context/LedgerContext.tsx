@@ -7,6 +7,10 @@ import { logAudit, valueAt } from '../lib/audit';
 import { useApp } from './AppContext';
 import { ImportRow } from '../lib/importer';
 import { accountLimitError, operationLimitError } from '../lib/subscription';
+import { BusinessProfile, parseProfile } from '../lib/localization';
+import { ChartPlanRow } from '../lib/coaTemplates';
+import { setPrintProfile } from '../lib/export';
+import { findTaxCountry } from '../tax/countries';
 import {
   Account,
   AccountBalance,
@@ -18,6 +22,7 @@ import {
   localIso,
   newOperationId,
   nextAccountId,
+  setFiscalStartMonth,
   operationToJson,
   parseAccount,
   parseOperation,
@@ -153,6 +158,18 @@ interface LedgerContextType {
   deleteRate: (id: string) => Promise<void>;
   /** قيد إقفال الإيرادات والمصروفات في حساب الأرباح المدوّرة حتى تاريخ */
   closePeriod: (until: string, retainedAccountId: string) => Promise<number>;
+  /** إعداد المنشأة (الدولة والقطاع والنشاط والسنة المالية والتقويم) — erp/profile */
+  profile: BusinessProfile | null;
+  /** يحفظ الإعداد وينشئ حسابات القالب المختارة (الجديدة فقط) ويربط حسابات الإعدادات الفارغة */
+  applySetup: (input: SetupInput) => Promise<{ created: number; linked: number }>;
+}
+
+export interface SetupInput {
+  profile: BusinessProfile;
+  /** صفوف القالب المختارة: الجديد يُنشأ، والموجود يُربط فقط */
+  rows: ChartPlanRow[];
+  /** تغيير العملة الرئيسية (مسموح فقط قبل وجود أي قيود) */
+  mainCurrency?: string;
 }
 
 export type InvoiceInput = Omit<Invoice, 'id' | 'number' | 'totals' | 'moveIds' | 'opIds' | 'createdAt'>;
@@ -176,6 +193,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [erpRaw, setErpRaw] = useState<any>(null);
   const [groupsRaw, setGroupsRaw] = useState<any>(null);
   const [salesCurrency, setSalesCurrency] = useState<string | null>(null);
+  const [taxRaw, setTaxRaw] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -188,6 +206,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       watchValue(`users/${uid}/erp`, setErpRaw),
       watchValue(`users/${uid}/accountGroups`, setGroupsRaw),
       watchValue(`sales/${uid}/settings/currency`, (v) => setSalesCurrency(typeof v === 'string' ? v : null)),
+      watchValue(`sales/${uid}/taxSettings`, setTaxRaw),
     ];
     return () => subs.forEach((u) => u());
   }, [uid]);
@@ -226,6 +245,20 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const settings: ErpSettings = useMemo(() => erp.settings || {}, [erp]);
   const accountMeta: Record<string, AccountMeta> = useMemo(() => erp.accountMeta || {}, [erp]);
   const mainCurrency = settings.mainCurrency || salesCurrency || 'USD';
+  const profile = useMemo(() => parseProfile(erp.profile), [erp]);
+
+  // السنة المالية والترويسة الرسمية تُطبَّق على كل التقارير والمطبوعات
+  useEffect(() => {
+    setFiscalStartMonth(profile?.fiscalYearStartMonth ?? 1);
+    const tc = findTaxCountry(taxRaw?.countryCode || profile?.country);
+    setPrintProfile({
+      calendar: profile?.calendar ?? 'gregorian',
+      crLabel: profile?.sector === 'government' ? 'رمز الجهة' : 'السجل التجاري',
+      crNumber: profile?.crNumber || '',
+      taxLabel: tc?.trnLabel,
+      taxNumber: typeof taxRaw?.trn === 'string' ? taxRaw.trn : '',
+    });
+  }, [profile, taxRaw]);
 
   const company: CompanyInfo = {
     name: companyRaw?.name || '',
@@ -1199,6 +1232,62 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 
 
+  const applySetup = useCallback<LedgerContextType['applySetup']>(
+    async ({ profile: p, rows, mainCurrency: newCurrency }) => {
+      const fresh = rows.filter((r) => !r.existing);
+      const limit = accountLimitError(webAccess, accounts.length, fresh.length);
+      if (limit) throw new Error(limit);
+      const updates: Updates = {};
+      const taken: Account[] = [...accounts];
+      const linkedSettings = new Set<string>();
+      let created = 0;
+      for (const r of rows) {
+        let id = r.existing?.id;
+        if (!id) {
+          id = nextAccountId(taken);
+          const acc: Account = {
+            id,
+            name: r.tpl.name,
+            phone: '',
+            address: '',
+            type: r.tpl.type || 'cash',
+            createdAt: localIso(),
+            code: r.codeTaken ? '' : r.tpl.code,
+            category: r.tpl.category,
+            allowClientLogin: false,
+            clientPhone: '',
+            clientEmail: '',
+            clientUid: '',
+            groupId: '',
+            entityType: '',
+          };
+          taken.push(acc);
+          updates[`accounts/${id}`] = accountToJson(acc);
+          if (r.tpl.role) updates[`erp/accountMeta/${id}/role`] = r.tpl.role;
+          created++;
+        }
+        if (r.tpl.chapter && !accountMeta[id]?.chapter) updates[`erp/accountMeta/${id}/chapter`] = r.tpl.chapter;
+        const key = r.tpl.setting;
+        if (key && !linkedSettings.has(key)) {
+          const cur = settings[key];
+          if (!cur || !accountsById[cur]) {
+            updates[`erp/settings/${key}`] = id;
+            linkedSettings.add(key);
+          }
+        }
+      }
+      updates['erp/profile'] = { ...p, crNumber: p.crNumber || '', setupAt: localIso() };
+      if (newCurrency && newCurrency !== mainCurrency) {
+        if (operations.length) throw new Error('لا يمكن تغيير العملة الرئيسية بعد وجود قيود');
+        updates['erp/settings/mainCurrency'] = newCurrency;
+        updates['erp/settings/mainCurrencyUpdatedAt'] = Date.now();
+      }
+      await write(updates);
+      return { created, linked: linkedSettings.size };
+    },
+    [accounts, accountsById, accountMeta, settings, mainCurrency, operations.length, webAccess, write],
+  );
+
   const value: LedgerContextType = {
     ready: accountsRaw !== undefined && opsRaw !== undefined,
     accounts,
@@ -1265,6 +1354,8 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     saveRate,
     deleteRate,
     closePeriod,
+    profile,
+    applySetup,
   };
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;

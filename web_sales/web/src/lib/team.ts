@@ -121,6 +121,7 @@ const PATH_AREAS: [RegExp, Area | 'owner' | 'any'][] = [
   [/^\/import/, 'any'],
   [/^\/team/, 'owner'],
   [/^\/einvoice/, 'owner'],
+  [/^\/setup/, 'owner'],
   [/^\/settings/, 'settings'],
   [/^\/rates/, 'settings'],
   [/^\/audit/, 'audit'],
@@ -152,7 +153,7 @@ const areaOfWritePath = (p: string): Area => {
   if (/^erp\/(vouchers|cheques|cashboxes)\//.test(p) || p.startsWith('cashboxes')) return 'cash';
   if (/^erp\/(stockMoves|items|warehouses)\//.test(p)) return 'stock';
   if (p.startsWith('erp/payrolls')) return 'payroll';
-  if (/^erp\/(settings|rates|budgets)/.test(p) || p.startsWith('companyInfo') || p.startsWith('alerts/settings') || p.startsWith('team/')) return 'settings';
+  if (/^erp\/(settings|rates|budgets|profile)/.test(p) || p.startsWith('companyInfo') || p.startsWith('alerts/settings') || p.startsWith('team/')) return 'settings';
   if (p.startsWith('einvoice')) return 'taxes';
   return 'accounts';
 };

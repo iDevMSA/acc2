@@ -51,6 +51,7 @@ const ENTITIES: [RegExp, string][] = [
   [/^erp\/accountMeta\/([^/]+)/, 'تصنيف حساب'],
   [/^erp\/settings/, 'الإعدادات'],
   [/^erp\/budgets/, 'الموازنة'],
+  [/^erp\/profile/, 'إعداد المنشأة'],
   [/^alerts\/settings/, 'إعدادات التنبيهات'],
   [/^team\/([^/]+)/, 'عضو الفريق'],
   [/^einvoice\//, 'الفوترة الإلكترونية'],

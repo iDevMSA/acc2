@@ -215,6 +215,7 @@ const SECTIONS: Section[] = [
     actions: [
       { label: 'نسخ بيانات المجموعة', icon: 'download', action: 'backup' },
       { label: 'فحص وتدقيق البيانات', icon: 'shield', action: 'check' },
+      { label: 'إعداد المنشأة ودليل الحسابات', icon: 'building', to: '/setup' },
       { label: 'الإعدادات ومعلومات الشركة', icon: 'settings', to: '/settings' },
       { label: 'ترحيل وإغلاق الفترة', icon: 'lock', action: 'close' },
       { label: 'أسعار العملات', icon: 'coins', to: '/rates' },
@@ -228,7 +229,7 @@ const SECTIONS: Section[] = [
     actions: [
       { label: 'العملة الرئيسية', icon: 'coins', to: '/settings' },
       { label: 'البنوك', icon: 'building', to: '/accounts?role=bank' },
-      { label: 'المستخدمون', icon: 'users', soon: true },
+      { label: 'المستخدمون', icon: 'users', to: '/team' },
     ],
     reports: [
       { label: 'كشف بأرصدة الحسابات', to: '/reports?r=balances' },

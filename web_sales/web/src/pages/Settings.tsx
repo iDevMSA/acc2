@@ -14,7 +14,7 @@ import { SHORTCUT_ACTIONS } from '../lib/shortcuts';
 import Kbd from '../components/ui/Kbd';
 
 const Settings: React.FC = () => {
-  const { user } = useApp();
+  const { user, member } = useApp();
   const {
     company,
     saveCompany,
@@ -25,6 +25,7 @@ const Settings: React.FC = () => {
     orphanOperations,
     deleteOperations,
     ready,
+    profile,
   } = useLedger();
   const [form, setForm] = useState(company);
   const [currency, setCurrency] = useState(mainCurrency);
@@ -63,7 +64,19 @@ const Settings: React.FC = () => {
 
   return (
     <>
-      <PageHeader title="الإعدادات" description="معلومات الشركة والعملة الرئيسية وحالة المزامنة مع تطبيق الهاتف" />
+      <PageHeader
+        title="الإعدادات"
+        description="معلومات الشركة والعملة الرئيسية وحالة المزامنة مع تطبيق الهاتف"
+        actions={
+          !member && (
+            <Link to="/setup">
+              <Button variant="secondary" icon="building">
+                {profile ? 'إعداد المنشأة' : 'إعداد المنشأة ودليل الحسابات'}
+              </Button>
+            </Link>
+          )
+        }
+      />
 
       {saved && (
         <p className="mb-4 flex items-center gap-2 rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700">

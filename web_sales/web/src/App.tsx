@@ -34,6 +34,7 @@ import EInvoice from './pages/EInvoice';
 import Alerts from './pages/Alerts';
 import { AlertsProvider } from './context/AlertsContext';
 import Team from './pages/Team';
+import Setup from './pages/Setup';
 import Audit from './pages/Audit';
 import Import from './pages/Import';
 import { canOpen } from './lib/team';
@@ -123,6 +124,7 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/einvoice', <EInvoice />],
   ['/alerts', <Alerts />],
   ['/team', <Team />],
+  ['/setup', <Setup />],
   ['/audit', <Audit />],
   ['/import', <Import />],
   ['/pos-admin', <PosAdmin />],
