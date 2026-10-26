@@ -5,6 +5,7 @@ import { db, secondaryAuth } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
 import { assertCanWrite } from '../lib/team';
 import { logAudit, valueAt } from '../lib/audit';
+import { playSound, soundOfWrite } from '../lib/sounds';
 import { ImportRow } from '../lib/importer';
 import { useApp } from './AppContext';
 import {
@@ -139,18 +140,27 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const me = useMemo(() => (isCashier && user ? employees.find((e) => e.uid === user.uid) || null : null), [isCashier, user, employees]);
 
   const write = useCallback(
-    (updates: Updates) => {
+    // silent: كتابات في الخلفية (ذاكرة الباركود، تمرير المسح من الهاتف) بلا صوت
+    (updates: Updates, opts: { silent?: boolean } = {}) => {
       if (!ownerUid) return Promise.reject(new Error('لم يتم تسجيل الدخول'));
       const prevRaw = rawRef.current;
       const prefixed = Object.fromEntries(Object.entries(updates).map(([k, v]) => [`sales/${k}`, v]));
       try {
         assertCanWrite(member, Object.keys(prefixed));
       } catch (e) {
+        if (!opts.silent) playSound('error');
         return Promise.reject(e);
       }
-      return update(ref(db, `sales/${ownerUid}`), updates).then(() => {
-        if (actor) logAudit(ownerUid, actor, prefixed, (p) => valueAt(prevRaw, p.slice('sales/'.length)));
-      });
+      return update(ref(db, `sales/${ownerUid}`), updates).then(
+        () => {
+          if (!opts.silent) playSound(soundOfWrite(updates));
+          if (actor) logAudit(ownerUid, actor, prefixed, (p) => valueAt(prevRaw, p.slice('sales/'.length)));
+        },
+        (e) => {
+          if (!opts.silent) playSound('error');
+          throw e;
+        },
+      );
     },
     [ownerUid, member, actor],
   );
@@ -282,6 +292,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
         [`employeeOwnerMap/${uid}`]: ownerUid,
       });
+      playSound('success');
       return uid;
     },
     [isCashier, ownerUid],
@@ -412,7 +423,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!c) return null;
       if (catalog[c]) return catalog[c];
       const found = await lookupBarcode(c);
-      if (found) await write({ [`barcodeCatalog/${c}`]: catalogToJson(found) }).catch(() => undefined);
+      if (found) await write({ [`barcodeCatalog/${c}`]: catalogToJson(found) }, { silent: true }).catch(() => undefined);
       return found;
     },
     [catalog, write],
@@ -511,7 +522,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const relayScan = useCallback<PosContextType['relayScan']>(
-    (registerId, code) => write({ [`scanRelay/${registerId}/${newKey(`scanRelay/${registerId}`)}`]: { code, byUid: user?.uid || '', at: Date.now() } }),
+    (registerId, code) => write({ [`scanRelay/${registerId}/${newKey(`scanRelay/${registerId}`)}`]: { code, byUid: user?.uid || '', at: Date.now() } }, { silent: true }),
     [newKey, user, write],
   );
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
 import { cx } from './primitives';
+import { playSound } from '../../lib/sounds';
 
 // عناصر نماذج الإدخال الموحّدة.
 
@@ -169,9 +170,14 @@ export const SearchSelect: React.FC<{
   );
 };
 
-export const FormError: React.FC<{ message?: string | null }> = ({ message }) =>
-  message ? (
+export const FormError: React.FC<{ message?: string | null }> = ({ message }) => {
+  // كل رسالة خطأ جديدة في نموذج (تحقق أو رفض الحفظ) يصحبها صوت الفشل
+  useEffect(() => {
+    if (message) playSound('error');
+  }, [message]);
+  return message ? (
     <p className="mt-4 flex items-center gap-2 rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700">
       <Icon name="alert" size={16} /> {message}
     </p>
   ) : null;
+};

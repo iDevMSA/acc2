@@ -12,6 +12,7 @@ import { onLastSync } from '../lib/offlineStore';
 import { useShortcuts } from '../context/ShortcutsContext';
 import { SHORTCUT_ACTIONS } from '../lib/shortcuts';
 import Kbd from '../components/ui/Kbd';
+import { getSoundPrefs, playSound, setSoundPrefs, SoundKind } from '../lib/sounds';
 
 const Settings: React.FC = () => {
   const { user, member } = useApp();
@@ -33,6 +34,11 @@ const Settings: React.FC = () => {
   const [err, setErr] = useState<string | null>(null);
   const [confirmClean, setConfirmClean] = useState(false);
   const [lastSync, setLastSync] = useState<number | null>(null);
+  const [sound, setSound] = useState(getSoundPrefs);
+  const changeSound = (p: Partial<typeof sound>) => {
+    setSoundPrefs(p);
+    setSound(getSoundPrefs());
+  };
   const { bindings, conflicts } = useShortcuts();
   const changedShortcuts = SHORTCUT_ACTIONS.filter((a) => bindings[a.id] !== a.defaultCombo).length;
 
@@ -133,6 +139,52 @@ const Settings: React.FC = () => {
             >
               حفظ العملة
             </Button>
+          </div>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="أصوات التنبيه"
+            subtitle="صوت قصير عند نجاح الحفظ أو الحذف أو فشلهما (قيود، حسابات، فواتير، سندات...) — الإعداد خاص بهذا المتصفح"
+          />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-5 text-sm">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={sound.enabled}
+                onChange={(e) => changeSound({ enabled: e.target.checked })}
+                className="h-4 w-4 accent-brand-600"
+              />
+              تشغيل الأصوات
+            </label>
+            <label className="inline-flex items-center gap-2 text-ink-muted">
+              مستوى الصوت
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.1}
+                value={sound.volume}
+                disabled={!sound.enabled}
+                onChange={(e) => changeSound({ volume: Number(e.target.value) })}
+                onMouseUp={() => playSound('success')}
+                onTouchEnd={() => playSound('success')}
+                className="w-32 accent-brand-600"
+              />
+            </label>
+            <span className="inline-flex items-center gap-2">
+              {(
+                [
+                  ['success', 'نجاح'],
+                  ['delete', 'حذف'],
+                  ['error', 'فشل'],
+                ] as [SoundKind, string][]
+              ).map(([k, label]) => (
+                <Button key={k} variant="secondary" size="sm" onClick={() => playSound(k, { force: true })}>
+                  <Icon name="volume" size={14} /> {label}
+                </Button>
+              ))}
+            </span>
           </div>
         </Card>
 
