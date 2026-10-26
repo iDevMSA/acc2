@@ -4,6 +4,7 @@ import { db } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
 import { assertCanWrite } from '../lib/team';
 import { logAudit, valueAt } from '../lib/audit';
+import { playSound, soundOfWrite } from '../lib/sounds';
 import { useApp } from './AppContext';
 import { ImportRow } from '../lib/importer';
 import { accountLimitError, operationLimitError } from '../lib/subscription';
@@ -410,8 +411,10 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await update(ref(db, `users/${uid}`), updates);
       } catch (e: any) {
         setError(e?.message || 'تعذّر حفظ التغييرات');
+        playSound('error');
         throw e;
       }
+      playSound(soundOfWrite(updates));
       if (actor) logAudit(uid, actor, updates, (p) => valueAt(prevTree, p));
     },
     [uid, member, actor],

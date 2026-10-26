@@ -6,6 +6,7 @@ import { auth, db, secondaryAuth } from '../config/firebase';
 import { watchValue } from './offlineStore';
 import { canWriteAny, parseMember, Perms, ROLES, TeamMember, TeamRole } from './team';
 import { Actor, logAudit } from './audit';
+import { playSound } from './sounds';
 
 export const useTeam = (ownerUid: string | null) => {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -118,6 +119,7 @@ export const createMember = async (ownerUid: string, actor: Actor, d: MemberDraf
     [`employeeOwnerMap/${uid}`]: ownerUid,
     [`sales/${ownerUid}/employees/${uid}`]: posEmployee(ownerUid, uid, d),
   });
+  playSound('success');
   logAudit(ownerUid, actor, { [`team/${uid}`]: rec }, () => undefined);
   return uid;
 };
@@ -130,12 +132,14 @@ export const saveMember = async (ownerUid: string, actor: Actor, uid: string, d:
     [`teams/${ownerUid}/${uid}`]: rec,
     [`sales/${ownerUid}/employees/${uid}`]: posEmployee(ownerUid, uid, d),
   });
+  playSound('success');
   logAudit(ownerUid, actor, { [`team/${uid}`]: rec }, () => prev);
 };
 
 /** الإيقاف يمنع الدخول لبيانات المالك (القواعد تشترط active) دون حذف الحساب أو سجله */
 export const setMemberActive = async (ownerUid: string, actor: Actor, m: TeamMember, active: boolean) => {
   await update(ref(db, `teams/${ownerUid}/${m.uid}`), { active, updatedAt: new Date().toISOString() });
+  playSound('success');
   logAudit(ownerUid, actor, { [`team/${m.uid}/active`]: active }, () => m.active);
 };
 
