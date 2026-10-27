@@ -588,7 +588,11 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const saveCompany = useCallback<LedgerContextType['saveCompany']>(
     (c) =>
       write({
-        companyInfo: { name: c.name.trim(), phone: c.phone.trim(), address: c.address.trim(), email: c.email.trim() },
+        // مسارات منفصلة حتى لا تُمسح حقول يكتبها الهاتف (الشعار، الرقم الضريبي، السجل التجاري…)
+        'companyInfo/name': c.name.trim(),
+        'companyInfo/phone': c.phone.trim(),
+        'companyInfo/address': c.address.trim(),
+        'companyInfo/email': c.email.trim(),
       }),
     [write],
   );
