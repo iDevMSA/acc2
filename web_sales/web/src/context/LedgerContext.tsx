@@ -1314,7 +1314,11 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
       }
-      updates['erp/profile'] = { ...p, crNumber: p.crNumber || '', setupAt: localIso() };
+      // حقول منفصلة حتى لا تُمسح حقول يكتبها الهاتف في نفس العقدة (أدواتي mobileTools…)
+      const profile: Record<string, unknown> = { ...p, crNumber: p.crNumber || '', setupAt: localIso() };
+      Object.entries(profile).forEach(([k, v]) => {
+        if (v !== undefined) updates[`erp/profile/${k}`] = v;
+      });
       if (newCurrency && newCurrency !== mainCurrency) {
         if (operations.length) throw new Error('لا يمكن تغيير العملة الرئيسية بعد وجود قيود');
         updates['erp/settings/mainCurrency'] = newCurrency;
