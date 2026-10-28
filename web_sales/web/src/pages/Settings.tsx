@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useLedger } from '../context/LedgerContext';
 import { useApp } from '../context/AppContext';
 import { Badge, Button, Card, CardHeader, PageHeader } from '../components/ui/primitives';
-import { Field, FormError, Input, Select } from '../components/ui/Form';
+import { Field, FormError, Input, Select, Textarea } from '../components/ui/Form';
 import { ConfirmModal } from '../components/ui/Modal';
 import Icon from '../components/ui/Icon';
 import { CURRENCIES, totalsOf } from '../lib/ledger';
@@ -20,6 +20,7 @@ const Settings: React.FC = () => {
     company,
     saveCompany,
     mainCurrency,
+    settings,
     saveSettings,
     accounts,
     operations,
@@ -34,6 +35,8 @@ const Settings: React.FC = () => {
   const [err, setErr] = useState<string | null>(null);
   const [confirmClean, setConfirmClean] = useState(false);
   const [lastSync, setLastSync] = useState<number | null>(null);
+  const [template, setTemplate] = useState(settings.reconciliationTemplate || '');
+  useEffect(() => setTemplate(settings.reconciliationTemplate || ''), [settings.reconciliationTemplate]);
   const [sound, setSound] = useState(getSoundPrefs);
   const changeSound = (p: Partial<typeof sound>) => {
     setSoundPrefs(p);
@@ -211,6 +214,51 @@ const Settings: React.FC = () => {
             ))}
             {changedShortcuts > 0 && <Badge tone="info">غيّرت {formatNumber(changedShortcuts, 0)} اختصار</Badge>}
             {Object.keys(conflicts).length > 0 && <Badge tone="warning">يوجد تعارض</Badge>}
+          </div>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="رسالة مطابقة الرصيد"
+            subtitle="النص الذي يرسله تطبيق الهاتف للعميل على واتساب — يتزامن مع الهاتف فوراً"
+          />
+          <div className="space-y-3 p-5">
+            <Textarea
+              rows={8}
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              placeholder="اتركه فارغاً لاستخدام النص الافتراضي في التطبيق"
+            />
+            <p className="text-xs leading-6 text-ink-subtle">
+              المتغيرات: <span className="num">{'{accountName} {accountId} {balance} {currencies} {date} {time} {companyName} {downloadLink}'}</span>
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={settings.showCurrencyBreakdown !== false}
+                onChange={(e) => saveSettings({ showCurrencyBreakdown: e.target.checked }).then(() => flash('تم الحفظ'))}
+              />
+              إظهار تفاصيل كل عملة في المطابقة وكشف الحساب
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={template === (settings.reconciliationTemplate || '')}
+                onClick={() =>
+                  saveSettings({ reconciliationTemplate: template.trim() ? template : null }).then(() =>
+                    flash('تم حفظ رسالة المطابقة'),
+                  )
+                }
+              >
+                حفظ الرسالة
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={!settings.reconciliationTemplate}
+                onClick={() => saveSettings({ reconciliationTemplate: null }).then(() => flash('عادت الرسالة الافتراضية'))}
+              >
+                استعادة الافتراضي
+              </Button>
+            </div>
           </div>
         </Card>
 

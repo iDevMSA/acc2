@@ -9,6 +9,14 @@ import { AccountExtra } from './trade';
 
 export interface ErpSettings {
   mainCurrency?: string;
+  /** نص رسالة مطابقة الرصيد المخصص (يتزامن مع تطبيق الهاتف) */
+  reconciliationTemplate?: string | null;
+  /** إظهار تفاصيل العملات في المطابقة وكشف الحساب (الهاتف) */
+  showCurrencyBreakdown?: boolean;
+  /** ترتيب تصنيفات الحسابات (الهاتف) */
+  categoryOrder?: string[];
+  /** أصوات العمليات في الهاتف */
+  soundsEnabled?: boolean;
   /** وقت آخر تغيير للعملة (ms) — الهاتف والويب يأخذان الأحدث */
   mainCurrencyUpdatedAt?: number;
   /** حساب "شيكات واردة / أوراق قبض" */

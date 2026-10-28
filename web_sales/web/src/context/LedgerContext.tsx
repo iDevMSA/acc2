@@ -104,6 +104,8 @@ interface LedgerContextType {
   balances: Record<string, AccountBalance>;
   company: CompanyInfo;
   mainCurrency: string;
+  /** لقطة الأداء والمخاطر التي يحسبها تطبيق الهاتف (erp/insights) */
+  insights: any | null;
   settings: ErpSettings;
   accountMeta: Record<string, AccountMeta>;
   roleOf: (accountId: string) => string;
@@ -271,6 +273,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const balances = useMemo(() => balancesByAccount(operations), [operations]);
 
   const erp = useMemo(() => erpRaw || {}, [erpRaw]);
+  const insights = useMemo(() => erp.insights || null, [erp]);
   const settings: ErpSettings = useMemo(() => erp.settings || {}, [erp]);
   const accountMeta: Record<string, AccountMeta> = useMemo(() => erp.accountMeta || {}, [erp]);
   const mainCurrency = settings.mainCurrency || salesCurrency || 'USD';
@@ -1532,6 +1535,7 @@ export const LedgerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     balances,
     company,
     mainCurrency,
+    insights,
     settings,
     accountMeta,
     roleOf,

@@ -37,6 +37,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/accounts', label: 'الحسابات', icon: 'ledger', description: 'دليل الحسابات وكشوفها', mobile: true },
       { path: '/accounting', label: 'القيود', icon: 'receipt', description: 'سجل القيود العام' },
       { path: '/reports', label: 'التقارير', icon: 'chart', description: 'مركز التقارير المالية', mobile: true },
+      { path: '/insights', label: 'الأداء والمخاطر', icon: 'shield', description: 'من تطبيق الهاتف: المركز والمخاطر الحالية والمتوقعة' },
+      { path: '/assistant', label: 'المدقق', icon: 'sparkle', description: 'جلسات المحادثة مع المساعد الذكي' },
       { path: '/charts', label: 'الرسوم البيانية', icon: 'trendUp', description: 'تحليل الأداء عبر الأشهر' },
       { path: '/taxes', label: 'الضرائب', icon: 'percent', description: 'إعدادات ضريبة الدولة والتقرير الضريبي' },
       { path: '/einvoice', label: 'الفوترة الإلكترونية', icon: 'shield', description: 'ZATCA المرحلة الثانية ومنظومة ETA المصرية' },

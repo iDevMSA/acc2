@@ -17,6 +17,8 @@ import Cheques from './pages/Cheques';
 import Hub from './pages/Hub';
 import Settings from './pages/Settings';
 import ShortcutsSettings from './pages/ShortcutsSettings';
+import Insights from './pages/Insights';
+import Assistant from './pages/Assistant';
 import Reports from './pages/Reports';
 import Trade from './pages/Trade';
 import Notes from './pages/Notes';
@@ -117,6 +119,8 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/warehouses', <Warehouses />],
   ['/invoices', <Invoices />],
   ['/reports', <Reports />],
+  ['/insights', <Insights />],
+  ['/assistant', <Assistant />],
   ['/trade', <Trade />],
   ['/notes', <Notes />],
   ['/payroll', <Payroll />],
