@@ -24,6 +24,7 @@ import {
 } from '../../lib/trade';
 import { formatDate, formatNumber } from '../../lib/format';
 import { printReport } from '../../lib/export';
+import { amountInWords } from '../../lib/localization';
 
 // نموذج المستند التجاري الموحّد (كما في الأصيل): فاتورة بيع/شراء ومرتجعاتها، عرض سعر، طلبية.
 // البنود إما أصناف من المخازن أو بنود خدمة/مصروف تُرحَّل على حساب.
@@ -507,6 +508,8 @@ export const printTradeDoc = (
   printReport(
     {
       title: `${title} رقم ${doc.number}`,
+      docDate: doc.date,
+      amountWords: amountInWords(t.total, doc.currency),
       subtitle: [doc.statement, doc.currency !== 'USD' || doc.exchangeRate !== 1 ? `سعر الصرف ${doc.exchangeRate}` : ''].filter(Boolean).join(' · '),
       summary,
       columns: ['#', 'البند', 'المخزن', 'الكمية', 'السعر', 'خصم %', 'الإجمالي'],

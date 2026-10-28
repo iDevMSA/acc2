@@ -95,7 +95,7 @@ export const onLastSync = (listener: (t: number | null) => void) => {
  * مثل onValue لكن يبدأ فوراً بالنسخة المحلية إن وُجدت، ثم يتابع القيمة الحية ويحفظها.
  * cb تستقبل القيمة الخام (snapshot.val()) أو null.
  */
-export const watchValue = (path: string, cb: (value: any) => void): (() => void) => {
+export const watchValue = (path: string, cb: (value: any) => void, onError?: (e: Error) => void): (() => void) => {
   let live = false;
   let active = true;
 
@@ -111,7 +111,7 @@ export const watchValue = (path: string, cb: (value: any) => void): (() => void)
     cb(value);
     writeCache(path, value);
     markSynced(Date.now());
-  });
+  }, (e) => onError?.(e));
 
   return () => {
     active = false;

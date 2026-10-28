@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useNewParam } from '../hooks/useNewParam';
 import { useLedger } from '../context/LedgerContext';
 import { Button, Card, PageHeader, StatCard } from '../components/ui/primitives';
 import DataTable, { Column } from '../components/ui/DataTable';
@@ -19,6 +20,7 @@ const Accounting: React.FC = () => {
   const [currency, setCurrency] = useState('');
   const [modal, setModal] = useState<{ open: boolean; op?: Operation | null }>({ open: false });
   const [confirm, setConfirm] = useState<Operation | null>(null);
+  useNewParam((k) => k === 'entry' && setModal({ open: true }));
 
   const currencies = useMemo(() => Array.from(new Set(operations.map((o) => o.currency))).sort(), [operations]);
 

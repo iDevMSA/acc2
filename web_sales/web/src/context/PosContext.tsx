@@ -1,8 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { increment, onChildAdded, push, ref, remove, update } from 'firebase/database';
 import { createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 import { db, secondaryAuth } from '../config/firebase';
 import { watchValue } from '../lib/offlineStore';
+import { assertCanWrite } from '../lib/team';
+import { logAudit, valueAt } from '../lib/audit';
+import { playSound, soundOfWrite } from '../lib/sounds';
+import { ImportRow } from '../lib/importer';
 import { useApp } from './AppContext';
 import {
   CashRegister,
@@ -82,6 +86,8 @@ interface PosContextType {
   updateEmployee: (uid: string, data: Partial<Pick<PosEmployee, 'name' | 'phone' | 'role' | 'branchId' | 'cashRegisterId'>>) => Promise<void>;
   removeEmployee: (uid: string) => Promise<void>;
   saveProduct: (p: Partial<PosProduct> & { name: string; warehouseId: string }, meta?: ProductMeta) => Promise<string>;
+  /** استيراد منتجات من Excel إلى مخزن في كتابة واحدة */
+  importProducts: (rows: ImportRow[], warehouseId: string) => Promise<{ added: number; updated: number }>;
   deleteProduct: (id: string) => Promise<void>;
   transferStock: (productId: string, toWarehouseId: string, qty: number) => Promise<void>;
   /** يبحث في دليل الشركة ثم في قواعد المنتجات العالمية ويحفظ النتيجة */
@@ -96,10 +102,12 @@ interface PosContextType {
 const PosContext = createContext<PosContextType | undefined>(undefined);
 
 export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, ownerUid: owner, isCashier, currency } = useApp();
+  const { user, ownerUid: owner, isCashier, currency, member, actor } = useApp();
   const ownerUid = owner || '';
   const [raw, setRaw] = useState<Record<string, any>>({});
   const [loaded, setLoaded] = useState<Set<string>>(new Set());
+  const rawRef = useRef<Record<string, any>>({});
+  rawRef.current = raw;
 
   useEffect(() => {
     if (!ownerUid) return;
@@ -132,11 +140,29 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const me = useMemo(() => (isCashier && user ? employees.find((e) => e.uid === user.uid) || null : null), [isCashier, user, employees]);
 
   const write = useCallback(
-    (updates: Updates) => {
+    // silent: كتابات في الخلفية (ذاكرة الباركود، تمرير المسح من الهاتف) بلا صوت
+    (updates: Updates, opts: { silent?: boolean } = {}) => {
       if (!ownerUid) return Promise.reject(new Error('لم يتم تسجيل الدخول'));
-      return update(ref(db, `sales/${ownerUid}`), updates);
+      const prevRaw = rawRef.current;
+      const prefixed = Object.fromEntries(Object.entries(updates).map(([k, v]) => [`sales/${k}`, v]));
+      try {
+        assertCanWrite(member, Object.keys(prefixed));
+      } catch (e) {
+        if (!opts.silent) playSound('error');
+        return Promise.reject(e);
+      }
+      return update(ref(db, `sales/${ownerUid}`), updates).then(
+        () => {
+          if (!opts.silent) playSound(soundOfWrite(updates));
+          if (actor) logAudit(ownerUid, actor, prefixed, (p) => valueAt(prevRaw, p.slice('sales/'.length)));
+        },
+        (e) => {
+          if (!opts.silent) playSound('error');
+          throw e;
+        },
+      );
     },
-    [ownerUid],
+    [ownerUid, member, actor],
   );
   const newKey = useCallback((node: string) => push(ref(db, `sales/${ownerUid}/${node}`)).key!, [ownerUid]);
 
@@ -266,6 +292,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
         [`employeeOwnerMap/${uid}`]: ownerUid,
       });
+      playSound('success');
       return uid;
     },
     [isCashier, ownerUid],
@@ -314,6 +341,51 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [products, newKey, ownerUid, write],
   );
 
+  const importProducts = useCallback<PosContextType['importProducts']>(
+    async (rows, warehouseId) => {
+      const u: Updates = {};
+      let added = 0;
+      let updated = 0;
+      const num = (v: unknown) => Number(v) || 0;
+      for (const r of rows) {
+        const v = r.values;
+        const prev = r.existingId ? products.find((x) => x.id === r.existingId) : undefined;
+        if (r.status === 'update' && prev) {
+          const patch: Partial<PosProduct> = {};
+          if (v.barcode) patch.barcode = String(v.barcode);
+          if (v.category) patch.category = String(v.category);
+          (['sellPrice', 'costPrice', 'quantity', 'vatRate'] as const).forEach((k) => v[k] != null && (patch[k] = num(v[k])));
+          if (v.expiryDate) Object.assign(patch, { expiryDate: String(v.expiryDate), trackExpiry: true });
+          u[`products/${prev.id}`] = productToJson({ ...prev, ...patch });
+          updated++;
+        } else if (r.status === 'new') {
+          const id = newKey('products');
+          u[`products/${id}`] = productToJson({
+            id,
+            ownerUid,
+            name: String(v.name).trim(),
+            warehouseId,
+            barcode: v.barcode ? String(v.barcode) : null,
+            category: v.category ? String(v.category) : null,
+            description: null,
+            costPrice: num(v.costPrice),
+            sellPrice: num(v.sellPrice),
+            quantity: num(v.quantity),
+            vatRate: num(v.vatRate),
+            branchPrices: {},
+            expiryDate: v.expiryDate ? String(v.expiryDate) : null,
+            productionDate: null,
+            trackExpiry: !!v.expiryDate,
+          });
+          added++;
+        }
+      }
+      if (Object.keys(u).length) await write(u);
+      return { added, updated };
+    },
+    [products, newKey, ownerUid, write],
+  );
+
   const deleteProduct = useCallback<PosContextType['deleteProduct']>((id) => write({ [`products/${id}`]: null, [`productMeta/${id}`]: null }), [write]);
 
   /** تحويل كمية بين مخزنين مرتبطين: ينقص من المنتج ويزيد نفس الباركود في المخزن الآخر (أو يُنشأ) */
@@ -351,7 +423,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!c) return null;
       if (catalog[c]) return catalog[c];
       const found = await lookupBarcode(c);
-      if (found) await write({ [`barcodeCatalog/${c}`]: catalogToJson(found) }).catch(() => undefined);
+      if (found) await write({ [`barcodeCatalog/${c}`]: catalogToJson(found) }, { silent: true }).catch(() => undefined);
       return found;
     },
     [catalog, write],
@@ -450,7 +522,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const relayScan = useCallback<PosContextType['relayScan']>(
-    (registerId, code) => write({ [`scanRelay/${registerId}/${newKey(`scanRelay/${registerId}`)}`]: { code, byUid: user?.uid || '', at: Date.now() } }),
+    (registerId, code) => write({ [`scanRelay/${registerId}/${newKey(`scanRelay/${registerId}`)}`]: { code, byUid: user?.uid || '', at: Date.now() } }, { silent: true }),
     [newKey, user, write],
   );
 
@@ -480,6 +552,7 @@ export const PosProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateEmployee,
     removeEmployee,
     saveProduct,
+    importProducts,
     deleteProduct,
     transferStock,
     resolveBarcode,

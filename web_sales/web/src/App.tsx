@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AppProvider, useApp } from './context/AppContext';
 import { LedgerProvider } from './context/LedgerContext';
 import { PosProvider } from './context/PosContext';
+import { ShortcutsProvider } from './context/ShortcutsContext';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Accounting from './pages/Accounting';
@@ -15,20 +16,38 @@ import Warehouses from './pages/Warehouses';
 import Cheques from './pages/Cheques';
 import Hub from './pages/Hub';
 import Settings from './pages/Settings';
+import ShortcutsSettings from './pages/ShortcutsSettings';
 import Reports from './pages/Reports';
 import Trade from './pages/Trade';
 import Notes from './pages/Notes';
 import Payroll from './pages/Payroll';
 import Rates from './pages/Rates';
 import Charts from './pages/Charts';
+import Subscription from './pages/Subscription';
 import PosAdmin from './pages/pos/PosAdmin';
 import Cashier from './pages/pos/Cashier';
 import { BrandMark } from './components/Sidebar';
 import AppShell from './components/layout/AppShell';
 import { Spinner } from './components/ui/primitives';
+import Taxes from './pages/Taxes';
+import EInvoice from './pages/EInvoice';
+import Alerts from './pages/Alerts';
+import { AlertsProvider } from './context/AlertsContext';
+import Team from './pages/Team';
+import Setup from './pages/Setup';
+import Budget from './pages/Budget';
+import Commitments from './pages/Commitments';
+import Audit from './pages/Audit';
+import Import from './pages/Import';
+import { canOpen } from './lib/team';
+import { EmptyState } from './components/ui/primitives';
+
+const NoAccess: React.FC = () => (
+  <EmptyState icon="lock" title="ليس لديك صلاحية فتح هذه الصفحة" description="اطلب من صاحب الحساب منحك الصلاحية من صفحة الفريق والصلاحيات" className="py-24" />
+);
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading, isCashier } = useApp();
+  const { user, loading, isCashier, member, suspended, logout } = useApp();
   const { pathname } = useLocation();
 
   if (loading) {
@@ -43,6 +62,19 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   if (!user) {
     return <Navigate to="/login" />;
+  }
+
+  if (suspended) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center">
+        <BrandMark className="h-11 w-11" />
+        <p className="text-base font-semibold text-ink">أوقف صاحب الحساب صلاحية دخولك</p>
+        <p className="text-sm text-ink-subtle">تواصل معه لإعادة تفعيل حسابك.</p>
+        <button onClick={logout} className="text-sm font-medium text-brand-700">
+          تسجيل الخروج
+        </button>
+      </div>
+    );
   }
 
   // الكاشير لا يرى إلا واجهة نقطة البيع على صندوقه (لا صلاحية له على حسابات المالك)
@@ -60,7 +92,11 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   return (
     <LedgerProvider>
       <PosProvider>
-        <AppShell>{children}</AppShell>
+        <AlertsProvider>
+          <ShortcutsProvider>
+            <AppShell>{canOpen(member, pathname) ? children : <NoAccess />}</AppShell>
+          </ShortcutsProvider>
+        </AlertsProvider>
       </PosProvider>
     </LedgerProvider>
   );
@@ -70,6 +106,8 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/', <Dashboard />],
   ['/hub', <Hub />],
   ['/settings', <Settings />],
+  ['/settings/shortcuts', <ShortcutsSettings />],
+  ['/subscription', <Subscription />],
   ['/accounts', <Accounts />],
   ['/accounts/:id', <AccountDetail />],
   ['/accounting', <Accounting />],
@@ -84,6 +122,15 @@ const PAGES: Array<[string, React.ReactNode]> = [
   ['/payroll', <Payroll />],
   ['/rates', <Rates />],
   ['/charts', <Charts />],
+  ['/taxes', <Taxes />],
+  ['/einvoice', <EInvoice />],
+  ['/alerts', <Alerts />],
+  ['/team', <Team />],
+  ['/setup', <Setup />],
+  ['/budget', <Budget />],
+  ['/commitments', <Commitments />],
+  ['/audit', <Audit />],
+  ['/import', <Import />],
   ['/pos-admin', <PosAdmin />],
   ['/pos', <Cashier />],
 ];
@@ -94,6 +141,7 @@ function App() {
       <Router basename={process.env.PUBLIC_URL || undefined}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<LoginPage mode="signup" />} />
           {PAGES.map(([path, page]) => (
             <Route key={path} path={path} element={<ProtectedLayout>{page}</ProtectedLayout>} />
           ))}

@@ -13,5 +13,33 @@
       "enabled": false
     },
     "singleProjectMode": true
-  }
+  },
+  "functions": [
+    {
+      "source": "einvoice",
+      "codebase": "einvoice",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "test",
+        "*.log"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    },
+    {
+      "source": "alerts",
+      "codebase": "alerts",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "test",
+        "*.log"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
 }

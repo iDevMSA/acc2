@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import Icon, { IconName } from '../ui/Icon';
 import { cx } from '../ui/primitives';
 import { useLedger } from '../../context/LedgerContext';
-import { NAV_GROUPS } from './navigation';
+import { visibleGroups } from './navigation';
+import { useApp } from '../../context/AppContext';
 import { ALL_REPORTS } from '../../lib/reportsExtra';
 import { formatNumber } from '../../lib/format';
+import { NEW_TARGETS, navActionId } from '../../lib/shortcuts';
+import { useShortcuts } from '../../context/ShortcutsContext';
+import Kbd from '../ui/Kbd';
 
-// بحث شامل بلوحة المفاتيح (Ctrl+K): الصفحات، التقارير، الحسابات، الأصناف — الانتقال من أي مكان لأي مكان
+// بحث شامل بلوحة المفاتيح (Ctrl+K افتراضياً، قابل للتعديل من نافذة الاختصارات): الصفحات، التقارير، الحسابات، الأصناف — الانتقال من أي مكان لأي مكان
 // كما يميّز الأصيل بسهولة التنقل وإمكانية العمل بلوحة المفاتيح دون الفأرة.
 
 interface Hit {
@@ -16,33 +20,23 @@ interface Hit {
   hint?: string;
   icon: IconName;
   to: string;
+  /** أمر الاختصار المرتبط (لعرض اختصاره بجانب النتيجة) */
+  action?: string;
 }
 
 const QUICK: Hit[] = [
-  { key: 'q-sale', label: 'فاتورة بيع جديدة', icon: 'arrowOut', to: '/trade?kind=sale', hint: 'الفواتير' },
-  { key: 'q-purchase', label: 'فاتورة شراء جديدة', icon: 'arrowIn', to: '/trade?kind=purchase', hint: 'الفواتير' },
-  { key: 'q-receipt', label: 'سند قبض', icon: 'arrowIn', to: '/vouchers?type=receipt', hint: 'النقدية' },
-  { key: 'q-payment', label: 'سند صرف', icon: 'arrowOut', to: '/vouchers?type=payment', hint: 'النقدية' },
+  { key: 'q-sale', label: 'فاتورة بيع جديدة', icon: 'arrowOut', to: NEW_TARGETS.newSale, hint: 'الفواتير', action: 'newSale' },
+  { key: 'q-purchase', label: 'فاتورة شراء جديدة', icon: 'arrowIn', to: NEW_TARGETS.newPurchase, hint: 'الفواتير', action: 'newPurchase' },
+  { key: 'q-receipt', label: 'سند قبض', icon: 'arrowIn', to: NEW_TARGETS.newReceipt, hint: 'النقدية', action: 'newReceipt' },
+  { key: 'q-payment', label: 'سند صرف', icon: 'arrowOut', to: NEW_TARGETS.newPayment, hint: 'النقدية', action: 'newPayment' },
+  { key: 'q-shortcuts', label: 'اختصارات لوحة المفاتيح', icon: 'keyboard', to: '/settings/shortcuts', hint: 'الإعدادات', action: 'shortcutsSettings' },
 ];
-
-export const useCommandPalette = () => {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')) {
-        e.preventDefault();
-        setOpen((o) => !o);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-  return { open, setOpen };
-};
 
 const CommandPalette: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const navigate = useNavigate();
   const { accounts, items, balances, mainCurrency } = useLedger();
+  const { bindings } = useShortcuts();
+  const { member } = useApp();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const list = useRef<HTMLUListElement>(null);
@@ -56,7 +50,7 @@ const CommandPalette: React.FC<{ open: boolean; onClose: () => void }> = ({ open
 
   const hits = useMemo<Hit[]>(() => {
     const s = q.trim();
-    const pages: Hit[] = NAV_GROUPS.flatMap((g) => g.items.map((i) => ({ key: `p${i.path}`, label: i.label, hint: g.label, icon: i.icon, to: i.path })));
+    const pages: Hit[] = visibleGroups(member).flatMap((g) => g.items.map((i) => ({ key: `p${i.path}`, label: i.label, hint: g.label, icon: i.icon, to: i.path, action: navActionId(i.path) })));
     if (!s) return [...QUICK, ...pages];
     const m = (t?: string) => !!t && t.toLowerCase().includes(s.toLowerCase());
     const reports: Hit[] = ALL_REPORTS.filter((r) => m(r.title) || m(r.description)).map((r) => ({
@@ -81,7 +75,7 @@ const CommandPalette: React.FC<{ open: boolean; onClose: () => void }> = ({ open
       .slice(0, 8)
       .map((i) => ({ key: `i${i.id}`, label: i.name, hint: `صنف ${i.code || ''}`, icon: 'box', to: '/warehouses?tab=items' }));
     return [...QUICK.filter((h) => m(h.label)), ...pages.filter((p) => m(p.label) || m(p.hint)), ...accs, ...reports, ...its].slice(0, 40);
-  }, [q, accounts, items, balances, mainCurrency]);
+  }, [q, accounts, items, balances, mainCurrency, member]);
 
   useEffect(() => setActive(0), [q]);
   useEffect(() => {
@@ -133,6 +127,7 @@ const CommandPalette: React.FC<{ open: boolean; onClose: () => void }> = ({ open
                 <Icon name={h.icon} size={16} className="shrink-0 text-ink-subtle" />
                 <span className="flex-1 truncate">{h.label}</span>
                 {h.hint && <span className="num shrink-0 text-xs text-ink-subtle">{h.hint}</span>}
+                {h.action && bindings[h.action] && <Kbd combo={bindings[h.action]} size="sm" className="shrink-0" />}
               </button>
             </li>
           ))}

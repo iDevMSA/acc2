@@ -1,6 +1,7 @@
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { connectDatabaseEmulator, getDatabase } from 'firebase/database';
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 
 // نفس الـ config من web_sales
 export const firebaseConfig = {
@@ -37,3 +38,7 @@ export const secondaryAuth = () => {
   }
   return a;
 };
+
+/** دوال السحابة (الفوترة الإلكترونية) — نفس منطقة النشر في einvoice/src/index.ts */
+export const functions = getFunctions(app, 'us-central1');
+if (process.env.REACT_APP_FIREBASE_EMULATOR === '1') connectFunctionsEmulator(functions, '127.0.0.1', 5001);

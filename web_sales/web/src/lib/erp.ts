@@ -9,6 +9,8 @@ import { AccountExtra } from './trade';
 
 export interface ErpSettings {
   mainCurrency?: string;
+  /** وقت آخر تغيير للعملة (ms) — الهاتف والويب يأخذان الأحدث */
+  mainCurrencyUpdatedAt?: number;
   /** حساب "شيكات واردة / أوراق قبض" */
   chequesInAccountId?: string;
   /** حساب "شيكات صادرة / أوراق دفع" */
@@ -27,6 +29,8 @@ export interface ErpSettings {
   retainedEarningsAccountId?: string;
   /** آخر تاريخ أُقفلت حتى نهايته الفترة المالية */
   closedUntil?: string;
+  /** اختصارات لوحة المفاتيح التي غيّرها المستخدم: id → اختصار ("" = بلا اختصار) */
+  shortcuts?: Record<string, string>;
 }
 
 export type AccountMeta = AccountExtra;

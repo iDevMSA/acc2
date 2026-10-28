@@ -5,7 +5,8 @@ import { Field, FormError, Input, SearchSelect, Segmented, Select } from '../ui/
 import Icon from '../ui/Icon';
 import { useLedger } from '../../context/LedgerContext';
 import { useAccountOptions } from '../ledger/LedgerForms';
-import { CURRENCIES, localIso } from '../../lib/ledger';
+import { CURRENCIES, getFiscalStartMonth, localIso } from '../../lib/ledger';
+import { fiscalYearOf } from '../../lib/localization';
 import { AccountNature, NATURE_LABELS, NOTE_LABELS, NoteKind, PayrollLine, payrollNet, rateOn } from '../../lib/trade';
 import { formatNumber } from '../../lib/format';
 
@@ -575,7 +576,12 @@ export const PayrollFormModal: React.FC<{ open: boolean; onClose: () => void }> 
 export const ClosePeriodModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { closePeriod, settings } = useLedger();
   const options = useAccountOptions((a) => a.category === 'equity' || a.category === 'liability' || a.category === 'other');
-  const [until, setUntil] = useState(`${new Date().getFullYear() - 1}-12-31`);
+  // نهاية السنة المالية السابقة حسب إعداد المنشأة
+  const [until, setUntil] = useState(() => {
+    const d = new Date(`${fiscalYearOf(new Date(), getFiscalStartMonth()).from}T12:00:00`);
+    d.setDate(d.getDate() - 1);
+    return localIso(d).slice(0, 10);
+  });
   const [retained, setRetained] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<number | null>(null);

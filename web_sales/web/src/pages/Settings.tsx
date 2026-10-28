@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLedger } from '../context/LedgerContext';
 import { useApp } from '../context/AppContext';
 import { Badge, Button, Card, CardHeader, PageHeader } from '../components/ui/primitives';
@@ -8,9 +9,13 @@ import Icon from '../components/ui/Icon';
 import { CURRENCIES, totalsOf } from '../lib/ledger';
 import { formatDate, formatNumber } from '../lib/format';
 import { onLastSync } from '../lib/offlineStore';
+import { useShortcuts } from '../context/ShortcutsContext';
+import { SHORTCUT_ACTIONS } from '../lib/shortcuts';
+import Kbd from '../components/ui/Kbd';
+import { getSoundPrefs, playSound, setSoundPrefs, SoundKind } from '../lib/sounds';
 
 const Settings: React.FC = () => {
-  const { user } = useApp();
+  const { user, member } = useApp();
   const {
     company,
     saveCompany,
@@ -21,6 +26,7 @@ const Settings: React.FC = () => {
     orphanOperations,
     deleteOperations,
     ready,
+    profile,
   } = useLedger();
   const [form, setForm] = useState(company);
   const [currency, setCurrency] = useState(mainCurrency);
@@ -28,6 +34,13 @@ const Settings: React.FC = () => {
   const [err, setErr] = useState<string | null>(null);
   const [confirmClean, setConfirmClean] = useState(false);
   const [lastSync, setLastSync] = useState<number | null>(null);
+  const [sound, setSound] = useState(getSoundPrefs);
+  const changeSound = (p: Partial<typeof sound>) => {
+    setSoundPrefs(p);
+    setSound(getSoundPrefs());
+  };
+  const { bindings, conflicts } = useShortcuts();
+  const changedShortcuts = SHORTCUT_ACTIONS.filter((a) => bindings[a.id] !== a.defaultCombo).length;
 
   useEffect(() => onLastSync(setLastSync), []);
   useEffect(() => setForm(company), [company.name, company.phone, company.address, company.email]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -57,7 +70,19 @@ const Settings: React.FC = () => {
 
   return (
     <>
-      <PageHeader title="الإعدادات" description="معلومات الشركة والعملة الرئيسية وحالة المزامنة مع تطبيق الهاتف" />
+      <PageHeader
+        title="الإعدادات"
+        description="معلومات الشركة والعملة الرئيسية وحالة المزامنة مع تطبيق الهاتف"
+        actions={
+          !member && (
+            <Link to="/setup">
+              <Button variant="secondary" icon="building">
+                {profile ? 'إعداد المنشأة' : 'إعداد المنشأة ودليل الحسابات'}
+              </Button>
+            </Link>
+          )
+        }
+      />
 
       {saved && (
         <p className="mb-4 flex items-center gap-2 rounded-lg bg-success-50 px-4 py-3 text-sm text-success-700">
@@ -93,7 +118,7 @@ const Settings: React.FC = () => {
         <Card>
           <CardHeader
             title="العملة الرئيسية"
-            subtitle="العملة التي تُحسب بها الأرصدة والتقارير. يجب أن تطابق العملة الرئيسية في تطبيق الهاتف"
+            subtitle="العملة التي تُحسب بها الأرصدة والتقارير. تتزامن تلقائياً مع تطبيق الهاتف (يُعتمد آخر تغيير من أي جهاز)"
           />
           <div className="space-y-4 p-5">
             <Field
@@ -114,6 +139,78 @@ const Settings: React.FC = () => {
             >
               حفظ العملة
             </Button>
+          </div>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="أصوات التنبيه"
+            subtitle="صوت قصير عند نجاح الحفظ أو الحذف أو فشلهما (قيود، حسابات، فواتير، سندات...) — الإعداد خاص بهذا المتصفح"
+          />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-5 text-sm">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={sound.enabled}
+                onChange={(e) => changeSound({ enabled: e.target.checked })}
+                className="h-4 w-4 accent-brand-600"
+              />
+              تشغيل الأصوات
+            </label>
+            <label className="inline-flex items-center gap-2 text-ink-muted">
+              مستوى الصوت
+              <input
+                type="range"
+                min={0.1}
+                max={1}
+                step={0.1}
+                value={sound.volume}
+                disabled={!sound.enabled}
+                onChange={(e) => changeSound({ volume: Number(e.target.value) })}
+                onMouseUp={() => playSound('success')}
+                onTouchEnd={() => playSound('success')}
+                className="w-32 accent-brand-600"
+              />
+            </label>
+            <span className="inline-flex items-center gap-2">
+              {(
+                [
+                  ['success', 'نجاح'],
+                  ['delete', 'حذف'],
+                  ['error', 'فشل'],
+                ] as [SoundKind, string][]
+              ).map(([k, label]) => (
+                <Button key={k} variant="secondary" size="sm" onClick={() => playSound(k, { force: true })}>
+                  <Icon name="volume" size={14} /> {label}
+                </Button>
+              ))}
+            </span>
+          </div>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardHeader
+            title="اختصارات لوحة المفاتيح"
+            subtitle="أوامر سريعة للتنقل وإنشاء الفواتير والسندات والحفظ — يمكنك تغيير أي اختصار"
+            actions={
+              <Link
+                to="/settings/shortcuts"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700"
+              >
+                <Icon name="keyboard" size={16} />
+                تخصيص الاختصارات
+              </Link>
+            }
+          />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-5 text-sm">
+            {['palette', 'save', 'newSale', 'newReceipt', 'help'].map((id) => (
+              <span key={id} className="inline-flex items-center gap-2 text-ink-muted">
+                {SHORTCUT_ACTIONS.find((a) => a.id === id)?.label}
+                {bindings[id] ? <Kbd combo={bindings[id]} size="sm" /> : <span className="text-ink-faint">—</span>}
+              </span>
+            ))}
+            {changedShortcuts > 0 && <Badge tone="info">غيّرت {formatNumber(changedShortcuts, 0)} اختصار</Badge>}
+            {Object.keys(conflicts).length > 0 && <Badge tone="warning">يوجد تعارض</Badge>}
           </div>
         </Card>
 
