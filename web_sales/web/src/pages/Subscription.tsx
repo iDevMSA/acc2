@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLedger } from '../context/LedgerContext';
-import { Badge, Card, CardHeader, PageHeader, Tabs, cx } from '../components/ui/primitives';
+import { auth } from '../config/firebase';
+import { claimRefCode, incomingRefCode } from '../lib/referral';
+import { Badge, Button, Card, CardHeader, PageHeader, Tabs, cx } from '../components/ui/primitives';
 import Icon, { IconName } from '../components/ui/Icon';
 import {
   FREE_MAX_ACCOUNTS,
@@ -79,6 +81,52 @@ const Usage: React.FC<{ label: string; used: number; max: number }> = ({ label, 
         <div className={cx('h-full rounded-full', pct >= 100 ? 'bg-danger-600' : 'bg-brand-600')} style={{ width: `${pct}%` }} />
       </div>
     </div>
+  );
+};
+
+// كود المسوّق لمن سجّل بدونه (مثلاً من تطبيق الهاتف): متاح أول 14 يوماً من إنشاء الحساب فقط
+const LATE_DAYS = 14;
+const ReferralCard: React.FC = () => {
+  const user = auth.currentUser;
+  const [code, setCode] = useState(incomingRefCode);
+  const [state, setState] = useState<{ busy?: boolean; ok?: boolean; msg?: string }>({});
+  const created = Date.parse(user?.metadata.creationTime || '');
+  if (!user || !Number.isFinite(created) || Date.now() - created > LATE_DAYS * 86400000) return null;
+  if (state.ok) {
+    return (
+      <Card className="flex items-center gap-2 p-4 text-sm text-success-700">
+        <Icon name="check" size={16} /> تم ربط حسابك بكود المسوّق.
+      </Card>
+    );
+  }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setState({ busy: true });
+    const res = await claimRefCode(user, code, 'later');
+    setState(res.ok ? { ok: true } : { msg: res.error === 'already_linked' ? 'حسابك مربوط بكود مسبقاً.' : res.message });
+  };
+  return (
+    <Card className="p-4">
+      <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[200px] flex-1">
+          <label htmlFor="lateRef" className="field-label">
+            عندك كود من أحد مسوّقينا؟
+          </label>
+          <input
+            id="lateRef"
+            className="field-input"
+            dir="ltr"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="MSXXXXXX"
+          />
+        </div>
+        <Button type="submit" disabled={state.busy || !code.trim()}>
+          {state.busy ? 'جارِ الحفظ...' : 'تطبيق الكود'}
+        </Button>
+      </form>
+      {state.msg && <p className="mt-2 text-xs text-danger-700">{state.msg}</p>}
+    </Card>
   );
 };
 
@@ -198,6 +246,8 @@ const Subscription: React.FC = () => {
             );
           })}
       </div>
+
+      <ReferralCard />
 
       <Card className="p-5">
         <p className="font-semibold text-ink">كيفية الاشتراك</p>

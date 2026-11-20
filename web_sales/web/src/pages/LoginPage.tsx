@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -13,6 +13,7 @@ import { Button } from '../components/ui/primitives';
 import Icon, { IconName } from '../components/ui/Icon';
 import InstallButton from '../components/pwa/InstallButton';
 import { FREE_MAX_ACCOUNTS, FREE_MAX_OPERATIONS, authErrorText, newUserRecord } from '../lib/subscription';
+import { checkRefCode, claimRefCode, incomingRefCode, normalizeRefCode } from '../lib/referral';
 
 const features: Array<{ icon: IconName; title: string; text: string }> = [
   { icon: 'receipt', title: 'مبيعات متزامنة', text: 'فواتير نقاط البيع تصل لحظياً من التطبيق.' },
@@ -60,6 +61,18 @@ const SignupForm: React.FC<{ onError: (m: string) => void }> = ({ onError }) => 
   });
   const [showCompany, setShowCompany] = useState(false);
   const [loading, setLoading] = useState(false);
+  // البرومو كود (كود المسوّق): يُعبّأ تلقائياً من رابط المسوّق
+  const [refFromLink] = useState(incomingRefCode);
+  const [refCode, setRefCode] = useState(refFromLink);
+  const [refState, setRefState] = useState<'' | 'checking' | 'valid' | 'invalid'>('');
+  useEffect(() => {
+    const c = normalizeRefCode(refCode);
+    if (!refCode.trim()) return setRefState('');
+    if (!c) return setRefState('invalid');
+    setRefState('checking');
+    const t = setTimeout(() => checkRefCode(c).then((ok) => setRefState(ok ? 'valid' : 'invalid')), 400);
+    return () => clearTimeout(t);
+  }, [refCode]);
   const setField = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -69,6 +82,7 @@ const SignupForm: React.FC<{ onError: (m: string) => void }> = ({ onError }) => 
     if (!form.name.trim()) return onError('الاسم مطلوب');
     if (!form.email.includes('@')) return onError('بريد غير صالح');
     if (form.password.trim().length < 6) return onError('كلمة المرور 6 أحرف على الأقل');
+    if (refCode.trim() && refState === 'invalid') return onError('كود المسوّق غير صحيح — صحّحه أو احذفه');
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, form.email.trim(), form.password.trim());
@@ -86,6 +100,11 @@ const SignupForm: React.FC<{ onError: (m: string) => void }> = ({ onError }) => 
             address: form.companyAddress.trim(),
           }),
         );
+      }
+      // ربط الحساب بالمسوّق (لا يوقف التسجيل إن فشل — يمكن إضافته لاحقاً من صفحة الاشتراك)
+      if (normalizeRefCode(refCode)) {
+        const res = await claimRefCode(user, refCode, refFromLink && normalizeRefCode(refCode) === refFromLink ? 'link' : 'signup');
+        if (!res.ok) console.warn('referral claim failed', res);
       }
       navigate('/');
     } catch (err: any) {
@@ -166,6 +185,26 @@ const SignupForm: React.FC<{ onError: (m: string) => void }> = ({ onError }) => 
           </div>
         )}
       </div>
+
+      <IconInput
+        id="refCode"
+        label="كود الخصم / المسوّق (اختياري)"
+        icon="sparkle"
+        value={refCode}
+        onChange={(e) => setRefCode(e.target.value.toUpperCase())}
+        placeholder="MSXXXXXX"
+        dir="ltr"
+        autoComplete="off"
+        hint={
+          refState === 'checking'
+            ? 'جارِ التحقق...'
+            : refState === 'valid'
+              ? '✓ كود صحيح'
+              : refState === 'invalid'
+                ? 'الكود غير صحيح'
+                : 'إن وصلك كود من أحد مسوّقينا اكتبه هنا'
+        }
+      />
 
       <p className="text-xs text-ink-subtle">
         تبدأ بالحساب المجاني ({FREE_MAX_ACCOUNTS} حساباً و{FREE_MAX_OPERATIONS} قيد)، ويعمل نفس الحساب في تطبيق الهاتف.
